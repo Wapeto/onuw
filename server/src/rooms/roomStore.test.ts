@@ -61,4 +61,17 @@ describe("roomStore", () => {
     expect(ttl).toBeGreaterThan(0);
     expect(ttl).toBeLessThanOrEqual(ROOM_TTL_SECONDS);
   });
+
+  it("refuses to overwrite an existing room code and reports the collision", async () => {
+    const first = fixture("QRST");
+    const created = await createRoom(first);
+    expect(created).toBe(true);
+
+    const second = { ...fixture("QRST"), players: [{ id: "p2", pseudo: "Mallory", isHost: true, connected: true }] };
+    const collided = await createRoom(second);
+    expect(collided).toBe(false);
+
+    const loaded = await getRoom("QRST");
+    expect(loaded).toEqual(first);
+  });
 });

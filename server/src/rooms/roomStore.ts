@@ -7,9 +7,10 @@ function roomKey(roomCode: string): string {
   return `room:${roomCode}`;
 }
 
-export async function createRoom(state: GameState): Promise<void> {
+export async function createRoom(state: GameState): Promise<boolean> {
   const redis = getRedisClient();
-  await redis.set(roomKey(state.roomCode), JSON.stringify(state), "EX", ROOM_TTL_SECONDS);
+  const result = await redis.set(roomKey(state.roomCode), JSON.stringify(state), "EX", ROOM_TTL_SECONDS, "NX");
+  return result === "OK";
 }
 
 export async function getRoom(roomCode: string): Promise<GameState | null> {
