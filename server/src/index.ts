@@ -13,13 +13,13 @@ export function createApp() {
     httpServer,
     { cors: { origin: "*" } },
   );
-  attachRedisAdapter(io);
+  const subClient = attachRedisAdapter(io);
 
   io.on("connection", (socket) => {
     socket.emit("connected", { socketId: socket.id });
   });
 
-  return { httpServer, io };
+  return { httpServer, io, subClient };
 }
 
 export function listen(
