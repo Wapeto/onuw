@@ -77,3 +77,44 @@ describe("insomniacResolver", () => {
     expect(result).toEqual({ roleId: "robber" });
   });
 });
+
+import { robberResolver, troublemakerResolver, drunkResolver } from "./actionResolvers.js";
+
+describe("robberResolver", () => {
+  it("swaps roles with the target and reveals the new role", () => {
+    const robber = player({ id: "r1", currentRoleId: "robber" });
+    const target = player({ id: "t1", currentRoleId: "villager" });
+    const { gameState, result } = robberResolver("r1", stateWith([robber, target]), {
+      targetPlayerId: "t1",
+    });
+    expect(gameState.players.find((p) => p.id === "r1")?.currentRoleId).toBe("villager");
+    expect(gameState.players.find((p) => p.id === "t1")?.currentRoleId).toBe("robber");
+    expect(result).toEqual({ newRoleId: "villager" });
+  });
+});
+
+describe("troublemakerResolver", () => {
+  it("swaps two other players' roles without revealing anything", () => {
+    const troublemaker = player({ id: "tm1", currentRoleId: "troublemaker" });
+    const a = player({ id: "a1", currentRoleId: "villager" });
+    const b = player({ id: "b1", currentRoleId: "seer" });
+    const { gameState, result } = troublemakerResolver("tm1", stateWith([troublemaker, a, b]), {
+      targetAId: "a1",
+      targetBId: "b1",
+    });
+    expect(gameState.players.find((p) => p.id === "a1")?.currentRoleId).toBe("seer");
+    expect(gameState.players.find((p) => p.id === "b1")?.currentRoleId).toBe("villager");
+    expect(result).toEqual({});
+  });
+});
+
+describe("drunkResolver", () => {
+  it("swaps the drunk's role with a center card without revealing it", () => {
+    const drunk = player({ id: "d1", currentRoleId: "drunk" });
+    const state = stateWith([drunk], ["hunter", "villager", "tanner"]);
+    const { gameState, result } = drunkResolver("d1", state, { centerIndex: 1 });
+    expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("villager");
+    expect(gameState.center[1]).toBe("drunk");
+    expect(result).toEqual({});
+  });
+});

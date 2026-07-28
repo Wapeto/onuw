@@ -1,5 +1,5 @@
 import type { GameState, RoleId } from "@onuw/shared";
-import { getPlayer } from "./helpers.js";
+import { getPlayer, swapCurrentRoles } from "./helpers.js";
 
 export interface ActionResult<TResult = Record<string, never>> {
   gameState: GameState;
@@ -66,4 +66,39 @@ export const insomniacResolver: ActionResolver<Record<string, never>, { roleId: 
 ) => {
   const player = getPlayer(gameState, actingPlayerId);
   return { gameState, result: { roleId: player.currentRoleId! } };
+};
+
+export const robberResolver: ActionResolver<{ targetPlayerId: string }, { newRoleId: RoleId }> = (
+  actingPlayerId,
+  gameState,
+  params,
+) => {
+  const swapped = swapCurrentRoles(gameState, actingPlayerId, params.targetPlayerId);
+  const newRoleId = getPlayer(swapped, actingPlayerId).currentRoleId!;
+  return { gameState: swapped, result: { newRoleId } };
+};
+
+export const troublemakerResolver: ActionResolver<{ targetAId: string; targetBId: string }> = (
+  _actingPlayerId,
+  gameState,
+  params,
+) => {
+  const swapped = swapCurrentRoles(gameState, params.targetAId, params.targetBId);
+  return { gameState: swapped, result: {} };
+};
+
+export const drunkResolver: ActionResolver<{ centerIndex: number }> = (
+  actingPlayerId,
+  gameState,
+  params,
+) => {
+  const drunkPlayer = getPlayer(gameState, actingPlayerId);
+  const centerRole = gameState.center[params.centerIndex];
+  const nextCenter = gameState.center.map((role, i) =>
+    i === params.centerIndex ? drunkPlayer.currentRoleId! : role,
+  );
+  const nextPlayers = gameState.players.map((p) =>
+    p.id === actingPlayerId ? { ...p, currentRoleId: centerRole } : p,
+  );
+  return { gameState: { ...gameState, center: nextCenter, players: nextPlayers }, result: {} };
 };
