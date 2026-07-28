@@ -53,7 +53,7 @@ describe("tickRunner", () => {
     expect(broadcast).toHaveBeenCalledWith("ABCD", "TICK_START", { tickIndex: 0, tickId: "doppelganger", durationMs: 100 });
     expect(emitToPlayer).toHaveBeenCalledWith("p1", "TICK_PAYLOAD", { tickId: "doppelganger", active: true });
     expect(emitToPlayer).toHaveBeenCalledWith("p2", "TICK_PAYLOAD", { tickId: "doppelganger", active: false });
-    expect(scheduleAdvance).toHaveBeenCalledWith("ABCD", 100);
+    expect(scheduleAdvance).toHaveBeenCalledWith("ABCD", 100, expect.any(Number));
   });
 
   it("advanceTick moves to the next tick", async () => {
@@ -120,6 +120,41 @@ describe("tickRunner", () => {
     room = await getRoom("MNOP");
     expect(room?.night?.paused).toBe(false);
     expect(broadcast).toHaveBeenCalledWith("MNOP", "TICK_RESUMED", { remainingMs: expect.any(Number) });
-    expect(scheduleAdvance).toHaveBeenLastCalledWith("MNOP", expect.any(Number));
+    expect(scheduleAdvance).toHaveBeenLastCalledWith("MNOP", expect.any(Number), expect.any(Number));
+  });
+
+  it("a stale scheduleAdvance timer (armed before a pause/resume) becomes a safe no-op", async () => {
+    await createRoom(fixture("STALE"));
+    const broadcast = vi.fn();
+    const scheduleAdvance = vi.fn();
+    const runner = createTickRunner({
+      broadcast,
+      emitToPlayer: vi.fn(),
+      scheduleAdvance,
+      nightOrder: TEST_ORDER,
+      jitterMs: 0,
+    });
+
+    await runner.startNight("STALE");
+    const staleToken = scheduleAdvance.mock.calls[0][2] as number;
+
+    await runner.pauseTick("STALE");
+    // Real delay so the resume's Date.now()-derived token is guaranteed distinct
+    // from the stale one, even on a fast test machine.
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
+    await runner.resumeTick("STALE");
+    const freshToken = scheduleAdvance.mock.calls.at(-1)![2] as number;
+    expect(freshToken).not.toBe(staleToken);
+
+    // The stale timer (armed before pause) fires late with its old token — must no-op.
+    await runner.advanceTick("STALE", staleToken);
+    let room = await getRoom("STALE");
+    expect(room?.night?.tickIndex).toBe(0);
+    expect(room?.night?.paused).toBe(false);
+
+    // The fresh timer (armed by resume) fires with the current token — must advance.
+    await runner.advanceTick("STALE", freshToken);
+    room = await getRoom("STALE");
+    expect(room?.night?.tickIndex).toBe(1);
   });
 });

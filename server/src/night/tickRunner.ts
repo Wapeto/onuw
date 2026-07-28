@@ -1,5 +1,6 @@
 import type { GameState } from "@onuw/shared";
 import { getRoom, saveRoom } from "../rooms/roomStore.js";
+import { transition } from "../state/phases.js";
 import { NIGHT_ORDER, type NightTick } from "./nightOrder.js";
 
 export interface TickRunnerDeps {
@@ -7,7 +8,7 @@ export interface TickRunnerDeps {
   emitToPlayer: (playerId: string, event: string, payload: unknown) => void;
   nightOrder?: NightTick[];
   jitterMs?: number;
-  scheduleAdvance?: (roomCode: string, delayMs: number) => void;
+  scheduleAdvance?: (roomCode: string, delayMs: number, token: number) => void;
 }
 
 function computeDuration(tick: NightTick, jitterMs: number): number {
@@ -19,9 +20,9 @@ export function createTickRunner(deps: TickRunnerDeps) {
   const jitterMs = deps.jitterMs ?? 1500;
   const scheduleAdvance =
     deps.scheduleAdvance ??
-    ((roomCode: string, delayMs: number) => {
+    ((roomCode: string, delayMs: number, token: number) => {
       setTimeout(() => {
-        void advanceTick(roomCode);
+        void advanceTick(roomCode, token);
       }, delayMs);
     });
 
@@ -42,15 +43,14 @@ export function createTickRunner(deps: TickRunnerDeps) {
       deps.emitToPlayer(p.id, "TICK_PAYLOAD", { tickId: tick.tickId, active: tick.activeFor(p, updated) });
     }
 
-    scheduleAdvance(roomCode, durationMs);
+    scheduleAdvance(roomCode, durationMs, updated.night!.tickStartedAt);
   }
 
   async function startNight(roomCode: string): Promise<void> {
     const room = await getRoom(roomCode);
     if (!room) throw new Error(`room ${roomCode} not found`);
     const updated: GameState = {
-      ...room,
-      phase: "NIGHT",
+      ...transition(room, "NIGHT"),
       night: {
         tickIndex: 0,
         tickStartedAt: Date.now(),
@@ -60,19 +60,19 @@ export function createTickRunner(deps: TickRunnerDeps) {
         doppelgangerCopiedRoleId: null,
         doppelgangerCopiedPlayerId: null,
       },
-      updatedAt: Date.now(),
     };
     await saveRoom(updated);
     await scheduleTick(roomCode);
   }
 
-  async function advanceTick(roomCode: string): Promise<void> {
+  async function advanceTick(roomCode: string, expectedTickStartedAt?: number): Promise<void> {
     const room = await getRoom(roomCode);
     if (!room || !room.night || room.night.paused) return;
+    if (expectedTickStartedAt !== undefined && room.night.tickStartedAt !== expectedTickStartedAt) return;
     const nextIndex = room.night.tickIndex + 1;
 
     if (nextIndex >= nightOrder.length) {
-      const updated: GameState = { ...room, phase: "DAY", night: null, updatedAt: Date.now() };
+      const updated: GameState = { ...transition(room, "DAY"), night: null };
       await saveRoom(updated);
       deps.broadcast(roomCode, "NIGHT_END", {});
       return;
@@ -114,7 +114,7 @@ export function createTickRunner(deps: TickRunnerDeps) {
     };
     await saveRoom(updated);
     deps.broadcast(roomCode, "TICK_RESUMED", { remainingMs });
-    scheduleAdvance(roomCode, remainingMs);
+    scheduleAdvance(roomCode, remainingMs, updated.night!.tickStartedAt);
   }
 
   return { startNight, advanceTick, pauseTick, resumeTick, scheduleTick };
