@@ -154,6 +154,19 @@ describe("doppelgangerResolver", () => {
     expect(result).toEqual({ copiedRoleId: "robber", chained: { newRoleId: "villager" } });
   });
 
+  it("copies drunk and immediately chains the drunk action against the center", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const drunk = player({ id: "dr1", originalRoleId: "drunk", currentRoleId: "drunk" });
+    const state = stateWith([dopp, drunk], ["hunter", "villager", "tanner"]);
+    const { gameState, result } = doppelgangerResolver("d1", state, {
+      targetPlayerId: "dr1",
+      subParams: { centerIndex: 1 },
+    });
+    expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("villager");
+    expect(gameState.center[1]).toBe("doppelganger");
+    expect(result).toEqual({ copiedRoleId: "drunk", chained: {} });
+  });
+
   it("copies insomniac and defers, recording doppelgangerCopiedRoleId", () => {
     const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
     const insomniac = player({ id: "i1", originalRoleId: "insomniac", currentRoleId: "insomniac" });
