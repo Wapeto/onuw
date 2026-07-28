@@ -1,6 +1,6 @@
 import type { GameState, RoleId } from "@onuw/shared";
-import { getPlayer, replacePlayer, swapCurrentRoles } from "./helpers.js";
-import type { NightTickId } from "../night/nightOrder.js";
+import { getCenterCard, getPlayer, replacePlayer, requireCurrentRole, swapCurrentRoles } from "./helpers.js";
+import { actsAsOriginalOrDoppelgangerCopy, type NightTickId } from "../night/nightOrder.js";
 
 export interface ActionResult<TResult = Record<string, never>> {
   gameState: GameState;
@@ -18,11 +18,11 @@ export const werewolfResolver: ActionResolver<
   { teammateIds: string[] } | { centerRoleId: RoleId }
 > = (actingPlayerId, gameState, params) => {
   const teammateIds = gameState.players
-    .filter((p) => p.currentRoleId === "werewolf" && p.id !== actingPlayerId)
+    .filter((p) => actsAsOriginalOrDoppelgangerCopy("werewolf")(p, gameState) && p.id !== actingPlayerId)
     .map((p) => p.id);
 
   if (teammateIds.length === 0 && params.centerIndex !== undefined) {
-    return { gameState, result: { centerRoleId: gameState.center[params.centerIndex] } };
+    return { gameState, result: { centerRoleId: getCenterCard(gameState, params.centerIndex) } };
   }
   return { gameState, result: { teammateIds } };
 };
@@ -31,7 +31,9 @@ export const minionResolver: ActionResolver<Record<string, never>, { werewolfIds
   _actingPlayerId,
   gameState,
 ) => {
-  const werewolfIds = gameState.players.filter((p) => p.currentRoleId === "werewolf").map((p) => p.id);
+  const werewolfIds = gameState.players
+    .filter((p) => actsAsOriginalOrDoppelgangerCopy("werewolf")(p, gameState))
+    .map((p) => p.id);
   return { gameState, result: { werewolfIds } };
 };
 
@@ -40,7 +42,7 @@ export const masonResolver: ActionResolver<Record<string, never>, { masonIds: st
   gameState,
 ) => {
   const masonIds = gameState.players
-    .filter((p) => p.currentRoleId === "mason" && p.id !== actingPlayerId)
+    .filter((p) => actsAsOriginalOrDoppelgangerCopy("mason")(p, gameState) && p.id !== actingPlayerId)
     .map((p) => p.id);
   return { gameState, result: { masonIds } };
 };
@@ -55,10 +57,10 @@ export const seerResolver: ActionResolver<
 > = (_actingPlayerId, gameState, params) => {
   if (params.mode === "player") {
     const target = getPlayer(gameState, params.targetPlayerId);
-    return { gameState, result: { roleId: target.currentRoleId! } };
+    return { gameState, result: { roleId: requireCurrentRole(target) } };
   }
   const [a, b] = params.centerIndices;
-  return { gameState, result: { roleIds: [gameState.center[a], gameState.center[b]] } };
+  return { gameState, result: { roleIds: [getCenterCard(gameState, a), getCenterCard(gameState, b)] } };
 };
 
 export const insomniacResolver: ActionResolver<Record<string, never>, { roleId: RoleId }> = (
@@ -66,7 +68,7 @@ export const insomniacResolver: ActionResolver<Record<string, never>, { roleId: 
   gameState,
 ) => {
   const player = getPlayer(gameState, actingPlayerId);
-  return { gameState, result: { roleId: player.currentRoleId! } };
+  return { gameState, result: { roleId: requireCurrentRole(player) } };
 };
 
 export const robberResolver: ActionResolver<{ targetPlayerId: string }, { newRoleId: RoleId }> = (
@@ -75,7 +77,7 @@ export const robberResolver: ActionResolver<{ targetPlayerId: string }, { newRol
   params,
 ) => {
   const swapped = swapCurrentRoles(gameState, actingPlayerId, params.targetPlayerId);
-  const newRoleId = getPlayer(swapped, actingPlayerId).currentRoleId!;
+  const newRoleId = requireCurrentRole(getPlayer(swapped, actingPlayerId));
   return { gameState: swapped, result: { newRoleId } };
 };
 
@@ -94,9 +96,9 @@ export const drunkResolver: ActionResolver<{ centerIndex: number }> = (
   params,
 ) => {
   const drunkPlayer = getPlayer(gameState, actingPlayerId);
-  const centerRole = gameState.center[params.centerIndex];
+  const centerRole = getCenterCard(gameState, params.centerIndex);
   const nextCenter = gameState.center.map((role, i) =>
-    i === params.centerIndex ? drunkPlayer.currentRoleId! : role,
+    i === params.centerIndex ? requireCurrentRole(drunkPlayer) : role,
   );
   const nextPlayers = gameState.players.map((p) =>
     p.id === actingPlayerId ? { ...p, currentRoleId: centerRole } : p,
@@ -114,9 +116,13 @@ export const doppelgangerResolver: ActionResolver<
   const copiedRoleId = target.originalRoleId;
   if (!copiedRoleId) throw new Error(`doppelganger target ${params.targetPlayerId} has no assigned role`);
 
+  if (!gameState.night) {
+    throw new Error("doppelgangerResolver called outside an active night tick");
+  }
+
   const nightUpdatedState: GameState = {
     ...gameState,
-    night: gameState.night && {
+    night: {
       ...gameState.night,
       doppelgangerCopiedRoleId: copiedRoleId,
       doppelgangerCopiedPlayerId: actingPlayerId,
@@ -154,7 +160,7 @@ export const doppelgangerInsomniacResolver: ActionResolver<Record<string, never>
   gameState,
 ) => {
   const player = getPlayer(gameState, actingPlayerId);
-  return { gameState, result: { roleId: player.currentRoleId! } };
+  return { gameState, result: { roleId: requireCurrentRole(player) } };
 };
 
 export const actionResolvers = {

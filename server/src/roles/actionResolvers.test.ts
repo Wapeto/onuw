@@ -16,27 +16,50 @@ function stateWith(players: Player[], center: GameState["center"] = []): GameSta
   return { roomCode: "ABCD", phase: "NIGHT", players, center, night: null, createdAt: 0, updatedAt: 0 };
 }
 
+function stateWithActiveNight(players: Player[], center: GameState["center"] = []): GameState {
+  return {
+    ...stateWith(players, center),
+    night: {
+      tickIndex: 0,
+      tickStartedAt: 0,
+      durationMs: 8000,
+      paused: false,
+      remainingMsAtPause: null,
+      doppelgangerCopiedRoleId: null,
+      doppelgangerCopiedPlayerId: null,
+    },
+  };
+}
+
 describe("werewolfResolver", () => {
   it("returns teammate ids for a two-wolf game", () => {
-    const wolf1 = player({ id: "w1", currentRoleId: "werewolf" });
-    const wolf2 = player({ id: "w2", currentRoleId: "werewolf" });
+    const wolf1 = player({ id: "w1", originalRoleId: "werewolf", currentRoleId: "werewolf" });
+    const wolf2 = player({ id: "w2", originalRoleId: "werewolf", currentRoleId: "werewolf" });
     const state = stateWith([wolf1, wolf2]);
     const { result } = werewolfResolver("w1", state, {});
     expect(result).toEqual({ teammateIds: ["w2"] });
   });
 
   it("returns a center card for a lone wolf", () => {
-    const wolf = player({ id: "w1", currentRoleId: "werewolf" });
+    const wolf = player({ id: "w1", originalRoleId: "werewolf", currentRoleId: "werewolf" });
     const state = stateWith([wolf], ["seer", "villager", "tanner"]);
     const { result } = werewolfResolver("w1", state, { centerIndex: 0 });
     expect(result).toEqual({ centerRoleId: "seer" });
+  });
+
+  it("still recognizes a genuine werewolf teammate whose card was swapped away", () => {
+    const wolf1 = player({ id: "w1", originalRoleId: "werewolf", currentRoleId: "werewolf" });
+    const wolf2 = player({ id: "w2", originalRoleId: "werewolf", currentRoleId: "doppelganger" });
+    const state = stateWith([wolf1, wolf2]);
+    const { result } = werewolfResolver("w1", state, {});
+    expect(result).toEqual({ teammateIds: ["w2"] });
   });
 });
 
 describe("minionResolver", () => {
   it("returns the ids of all current werewolves", () => {
-    const minion = player({ id: "m1", currentRoleId: "minion" });
-    const wolf = player({ id: "w1", currentRoleId: "werewolf" });
+    const minion = player({ id: "m1", originalRoleId: "minion", currentRoleId: "minion" });
+    const wolf = player({ id: "w1", originalRoleId: "werewolf", currentRoleId: "werewolf" });
     const { result } = minionResolver("m1", stateWith([minion, wolf]), {});
     expect(result).toEqual({ werewolfIds: ["w1"] });
   });
@@ -44,8 +67,8 @@ describe("minionResolver", () => {
 
 describe("masonResolver", () => {
   it("returns the ids of the other masons", () => {
-    const mason1 = player({ id: "m1", currentRoleId: "mason" });
-    const mason2 = player({ id: "m2", currentRoleId: "mason" });
+    const mason1 = player({ id: "m1", originalRoleId: "mason", currentRoleId: "mason" });
+    const mason2 = player({ id: "m2", originalRoleId: "mason", currentRoleId: "mason" });
     const { result } = masonResolver("m1", stateWith([mason1, mason2]), {});
     expect(result).toEqual({ masonIds: ["m2"] });
   });
@@ -67,6 +90,14 @@ describe("seerResolver", () => {
     const state = stateWith([seer], ["tanner", "hunter", "villager"]);
     const { result } = seerResolver("s1", state, { mode: "center", centerIndices: [0, 1] });
     expect(result).toEqual({ roleIds: ["tanner", "hunter"] });
+  });
+
+  it("throws on an out-of-range center index instead of returning undefined", () => {
+    const seer = player({ id: "s1", currentRoleId: "seer" });
+    const state = stateWith([seer], ["tanner", "hunter", "villager"]);
+    expect(() => seerResolver("s1", state, { mode: "center", centerIndices: [0, 99] })).toThrow(
+      /out of range/,
+    );
   });
 });
 
@@ -117,6 +148,12 @@ describe("drunkResolver", () => {
     expect(gameState.center[1]).toBe("drunk");
     expect(result).toEqual({});
   });
+
+  it("throws on an out-of-range center index instead of corrupting the player's role", () => {
+    const drunk = player({ id: "d1", currentRoleId: "drunk" });
+    const state = stateWith([drunk], ["hunter", "villager", "tanner"]);
+    expect(() => drunkResolver("d1", state, { centerIndex: 99 })).toThrow(/out of range/);
+  });
 });
 
 import { doppelgangerResolver, doppelgangerInsomniacResolver, actionResolvers } from "./actionResolvers.js";
@@ -125,7 +162,7 @@ describe("doppelgangerResolver", () => {
   it("copies a passive role (villager) and does nothing else", () => {
     const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
     const villager = player({ id: "v1", originalRoleId: "villager", currentRoleId: "villager" });
-    const state = stateWith([dopp, villager]);
+    const state = stateWithActiveNight([dopp, villager]);
     const { gameState, result } = doppelgangerResolver("d1", state, { targetPlayerId: "v1" });
     expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("villager");
     expect(result).toEqual({ copiedRoleId: "villager" });
@@ -134,7 +171,7 @@ describe("doppelgangerResolver", () => {
   it("copies werewolf and becomes active in the werewolf tick generically (no chained action)", () => {
     const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
     const wolf = player({ id: "w1", originalRoleId: "werewolf", currentRoleId: "werewolf" });
-    const state = stateWith([dopp, wolf]);
+    const state = stateWithActiveNight([dopp, wolf]);
     const { gameState, result } = doppelgangerResolver("d1", state, { targetPlayerId: "w1" });
     expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("werewolf");
     expect(result).toEqual({ copiedRoleId: "werewolf" });
@@ -144,7 +181,7 @@ describe("doppelgangerResolver", () => {
     const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
     const robber = player({ id: "r1", originalRoleId: "robber", currentRoleId: "robber" });
     const villager = player({ id: "v1", originalRoleId: "villager", currentRoleId: "villager" });
-    const state = stateWith([dopp, robber, villager]);
+    const state = stateWithActiveNight([dopp, robber, villager]);
     const { gameState, result } = doppelgangerResolver("d1", state, {
       targetPlayerId: "r1",
       subParams: { targetPlayerId: "v1" },
@@ -157,7 +194,7 @@ describe("doppelgangerResolver", () => {
   it("copies drunk and immediately chains the drunk action against the center", () => {
     const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
     const drunk = player({ id: "dr1", originalRoleId: "drunk", currentRoleId: "drunk" });
-    const state = stateWith([dopp, drunk], ["hunter", "villager", "tanner"]);
+    const state = stateWithActiveNight([dopp, drunk], ["hunter", "villager", "tanner"]);
     const { gameState, result } = doppelgangerResolver("d1", state, {
       targetPlayerId: "dr1",
       subParams: { centerIndex: 1 },
@@ -170,10 +207,28 @@ describe("doppelgangerResolver", () => {
   it("copies insomniac and defers, recording doppelgangerCopiedRoleId", () => {
     const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
     const insomniac = player({ id: "i1", originalRoleId: "insomniac", currentRoleId: "insomniac" });
-    const state = stateWith([dopp, insomniac]);
+    const state = stateWithActiveNight([dopp, insomniac]);
     const { gameState, result } = doppelgangerResolver("d1", state, { targetPlayerId: "i1" });
     expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("insomniac");
     expect(result).toEqual({ copiedRoleId: "insomniac" });
+  });
+
+  it("records doppelgangerCopiedRoleId and doppelgangerCopiedPlayerId on the night state", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const insomniac = player({ id: "i1", originalRoleId: "insomniac", currentRoleId: "insomniac" });
+    const state = stateWithActiveNight([dopp, insomniac]);
+    const { gameState } = doppelgangerResolver("d1", state, { targetPlayerId: "i1" });
+    expect(gameState.night?.doppelgangerCopiedRoleId).toBe("insomniac");
+    expect(gameState.night?.doppelgangerCopiedPlayerId).toBe("d1");
+  });
+
+  it("throws when called outside an active night tick (night is null)", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const villager = player({ id: "v1", originalRoleId: "villager", currentRoleId: "villager" });
+    const state = stateWith([dopp, villager]);
+    expect(() => doppelgangerResolver("d1", state, { targetPlayerId: "v1" })).toThrow(
+      /outside an active night tick/,
+    );
   });
 });
 
