@@ -1,19 +1,4 @@
-export type RoleId =
-  | "doppelganger"
-  | "werewolf"
-  | "minion"
-  | "mason"
-  | "seer"
-  | "robber"
-  | "troublemaker"
-  | "drunk"
-  | "insomniac"
-  | "villager"
-  | "hunter"
-  | "tanner"
-  | "villageIdiot";
-
-export const ROLE_IDS: readonly RoleId[] = [
+export const ROLE_IDS = [
   "doppelganger",
   "werewolf",
   "minion",
@@ -27,7 +12,9 @@ export const ROLE_IDS: readonly RoleId[] = [
   "hunter",
   "tanner",
   "villageIdiot",
-];
+] as const;
+
+export type RoleId = (typeof ROLE_IDS)[number];
 
 export function isValidRoleId(value: string): value is RoleId {
   return (ROLE_IDS as readonly string[]).includes(value);
