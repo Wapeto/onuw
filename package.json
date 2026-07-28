@@ -1,0 +1,15 @@
+{
+  "name": "onuw",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "test": "npm run test -w shared && npm run test -w server",
+    "lint": "eslint .",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client"
+  }
+}
