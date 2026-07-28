@@ -45,6 +45,22 @@ describe("NIGHT_ORDER", () => {
   it("werewolf tick includes a doppelganger who copied werewolf", () => {
     const tick = NIGHT_ORDER.find((t) => t.tickId === "werewolf")!;
     const p = player({ originalRoleId: "doppelganger", currentRoleId: "werewolf" });
+    const state: GameState = {
+      ...stateWith([p]),
+      night: { ...stateWith([]).night!, doppelgangerCopiedRoleId: "werewolf" },
+    };
+    expect(tick.activeFor(p, state)).toBe(true);
+  });
+
+  it("werewolf tick includes a genuine werewolf even after their card was swapped away", () => {
+    const tick = NIGHT_ORDER.find((t) => t.tickId === "werewolf")!;
+    const p = player({ originalRoleId: "werewolf", currentRoleId: "doppelganger" });
+    expect(tick.activeFor(p, stateWith([p]))).toBe(true);
+  });
+
+  it("insomniac tick includes a genuine insomniac even after their card was robbed away (base-game, no Doppelganger)", () => {
+    const tick = NIGHT_ORDER.find((t) => t.tickId === "insomniac")!;
+    const p = player({ originalRoleId: "insomniac", currentRoleId: "robber" });
     expect(tick.activeFor(p, stateWith([p]))).toBe(true);
   });
 

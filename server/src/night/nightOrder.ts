@@ -18,25 +18,26 @@ export interface NightTick {
   activeFor: (player: Player, gameState: GameState) => boolean;
 }
 
-function excludeDoppelganger(roleId: RoleId) {
-  return (player: Player): boolean =>
-    player.currentRoleId === roleId && player.originalRoleId !== "doppelganger";
+function actsAsOriginal(roleId: RoleId) {
+  return (player: Player): boolean => player.originalRoleId === roleId;
 }
 
-function includeGenerically(roleId: RoleId) {
-  return (player: Player): boolean => player.currentRoleId === roleId;
+export function actsAsOriginalOrDoppelgangerCopy(roleId: RoleId) {
+  return (player: Player, gameState: GameState): boolean =>
+    player.originalRoleId === roleId ||
+    (player.originalRoleId === "doppelganger" && gameState.night?.doppelgangerCopiedRoleId === roleId);
 }
 
 export const NIGHT_ORDER: NightTick[] = [
-  { tickId: "doppelganger", baseDurationMs: 8000, activeFor: includeGenerically("doppelganger") },
-  { tickId: "werewolf", baseDurationMs: 7000, activeFor: includeGenerically("werewolf") },
-  { tickId: "minion", baseDurationMs: 5000, activeFor: excludeDoppelganger("minion") },
-  { tickId: "mason", baseDurationMs: 5000, activeFor: includeGenerically("mason") },
-  { tickId: "seer", baseDurationMs: 8000, activeFor: excludeDoppelganger("seer") },
-  { tickId: "robber", baseDurationMs: 8000, activeFor: excludeDoppelganger("robber") },
-  { tickId: "troublemaker", baseDurationMs: 7000, activeFor: excludeDoppelganger("troublemaker") },
-  { tickId: "drunk", baseDurationMs: 5000, activeFor: excludeDoppelganger("drunk") },
-  { tickId: "insomniac", baseDurationMs: 5000, activeFor: excludeDoppelganger("insomniac") },
+  { tickId: "doppelganger", baseDurationMs: 8000, activeFor: actsAsOriginal("doppelganger") },
+  { tickId: "werewolf", baseDurationMs: 7000, activeFor: actsAsOriginalOrDoppelgangerCopy("werewolf") },
+  { tickId: "minion", baseDurationMs: 5000, activeFor: actsAsOriginal("minion") },
+  { tickId: "mason", baseDurationMs: 5000, activeFor: actsAsOriginalOrDoppelgangerCopy("mason") },
+  { tickId: "seer", baseDurationMs: 8000, activeFor: actsAsOriginal("seer") },
+  { tickId: "robber", baseDurationMs: 8000, activeFor: actsAsOriginal("robber") },
+  { tickId: "troublemaker", baseDurationMs: 7000, activeFor: actsAsOriginal("troublemaker") },
+  { tickId: "drunk", baseDurationMs: 5000, activeFor: actsAsOriginal("drunk") },
+  { tickId: "insomniac", baseDurationMs: 5000, activeFor: actsAsOriginal("insomniac") },
   {
     tickId: "doppelgangerInsomniac",
     baseDurationMs: 5000,
