@@ -8,8 +8,14 @@
     "client"
   ],
   "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
     "test": "npm run test -w shared && npm run test -w server",
     "lint": "eslint .",
     "build": "npm run build -w shared && npm run build -w server && npm run build -w client"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4",
+    "eslint": "^10.8.0",
+    "typescript-eslint": "^8.65.0"
   }
 }
