@@ -1,0 +1,16 @@
+{
+  "name": "@onuw/shared",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "main": "src/types.ts",
+  "types": "src/types.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
