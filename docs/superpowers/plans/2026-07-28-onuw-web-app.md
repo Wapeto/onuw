@@ -145,6 +145,13 @@ Tu as choisi "pause + grace period". Reste un sous-cas : **que se passe-t-il si 
 
 **Dépendances :** Phase 0, Phase 1 (room store).
 
+**Prérequis identifiés par la revue finale de Phase 1 (à traiter EN DÉBUT de Phase 2, pas après) :**
+- **Race Redis générale sur le join concurrent.** `roomStore.ts` fait un `getRoom → mutate → saveRoom` non-atomique. Le join flow va faire exactement ça à N joueurs qui scannent le QR simultanément (`getRoom → players.push → saveRoom`) — sans protection, des joins concurrents se perdent silencieusement (pas un cas rare, c'est le mode de démarrage normal du jeu). Corrigé pour `createRoom` seul (flag `NX`, commit `a0f1da5`), mais le pattern général read-modify-write reste non protégé. Ajouter un wrapper `withRoom(roomCode, fn)` basé sur `WATCH`/`MULTI` (ou un CAS via champ de version) dans `roomStore.ts` avant d'écrire `JOIN_ROOM`.
+- **`PLAYER_LIST_UPDATE` ne doit jamais exposer `connected` en broadcast pendant `NIGHT`.** `Player.connected` existe déjà (Task 11). Si ce champ est broadcasté tel quel pendant la nuit, ça révèle qui a décroché — ce que `TICK_PAUSED` prend justement soin de ne jamais faire (payload neutre `{}`). Filtrer/masquer `connected` dans tout event de roster diffusé pendant `NIGHT`.
+- Envisager `socket.join(playerId)` (room Socket.io per-player) plutôt qu'une table `playerId → socketId` maison — ça compose nativement avec l'adapter Redis déjà branché (Phase 1) et survit à une reconnexion sur une autre instance.
+
+---
+
 ---
 
 ### Phase 3 — Configuration des rôles
@@ -173,6 +180,11 @@ Tu as choisi "pause + grace period". Reste un sous-cas : **que se passe-t-il si 
 **Dépendances :** Phase 1 (tick runner), Phase 3 (rôles en jeu).
 
 **Note :** c'est la phase la plus critique et la plus dense (le cœur de la garantie anti-tell). À détailler en plan bite-sized séparé avant exécution.
+
+**Prérequis identifiés par la revue finale de Phase 1 (bloquants pour cette phase spécifiquement) :**
+- **`shared/src/types.ts` ne déclare que l'event `connected` dans `ServerToClientEvents`.** Le serveur (Phase 1) émet déjà `TICK_START` / `TICK_PAYLOAD` / `TICK_PAUSED` / `TICK_RESUMED` / `NIGHT_END` mais uniquement comme littéraux `string` côté `tickRunner.ts` — aucun contrat partagé. Étendre `ServerToClientEvents`/`ClientToServerEvents` avec ces 5 events et leurs payloads exacts AVANT d'écrire `Night.tsx`, sinon le client recrée les formes de payload à la main sans lien de compilation avec le serveur (ce que `/shared` existe justement pour éviter).
+- **Validation de payload à la frontière socket.** Les `actionResolvers` (Phase 1) acceptent des params typés mais non validés à l'exécution (`robberResolver({targetPlayerId})`, etc. — un `subParams` mal formé ne lève pas toujours une erreur propre, cf. `getCenterCard`/`requireCurrentRole` ajoutés en Phase 1 qui couvrent la moitié interne du problème). Le handler socket qui reçoit l'action d'un joueur et construit ces params doit valider le payload brut (Zod ou équivalent) avant d'appeler un resolver — c'est la frontière non-fiable qui n'existait pas encore en Phase 1.
+- **`pendingGrace` dans `disconnectHandler.ts` est un `Set` process-local.** Fonctionne en dev (process Node unique) mais un joueur qui décroche sur l'instance A et se reconnecte sur l'instance B (cas normal une fois sur Vercel, Phase 7) ne déclenchera jamais `resumeTick` — la partie reste en pause indéfiniment pour ce cas. Si Phase 4 est testée uniquement en local ce n'est pas bloquant tout de suite, mais noter que ça devra migrer vers un état stocké dans `NightState` (ex. `graceUntil`) avant tout déploiement multi-instance.
 
 ---
 
