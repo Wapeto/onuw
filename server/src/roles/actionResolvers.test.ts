@@ -118,3 +118,74 @@ describe("drunkResolver", () => {
     expect(result).toEqual({});
   });
 });
+
+import { doppelgangerResolver, doppelgangerInsomniacResolver, actionResolvers } from "./actionResolvers.js";
+
+describe("doppelgangerResolver", () => {
+  it("copies a passive role (villager) and does nothing else", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const villager = player({ id: "v1", originalRoleId: "villager", currentRoleId: "villager" });
+    const state = stateWith([dopp, villager]);
+    const { gameState, result } = doppelgangerResolver("d1", state, { targetPlayerId: "v1" });
+    expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("villager");
+    expect(result).toEqual({ copiedRoleId: "villager" });
+  });
+
+  it("copies werewolf and becomes active in the werewolf tick generically (no chained action)", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const wolf = player({ id: "w1", originalRoleId: "werewolf", currentRoleId: "werewolf" });
+    const state = stateWith([dopp, wolf]);
+    const { gameState, result } = doppelgangerResolver("d1", state, { targetPlayerId: "w1" });
+    expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("werewolf");
+    expect(result).toEqual({ copiedRoleId: "werewolf" });
+  });
+
+  it("copies robber and immediately chains the robber action", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const robber = player({ id: "r1", originalRoleId: "robber", currentRoleId: "robber" });
+    const villager = player({ id: "v1", originalRoleId: "villager", currentRoleId: "villager" });
+    const state = stateWith([dopp, robber, villager]);
+    const { gameState, result } = doppelgangerResolver("d1", state, {
+      targetPlayerId: "r1",
+      subParams: { targetPlayerId: "v1" },
+    });
+    expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("villager");
+    expect(gameState.players.find((p) => p.id === "v1")?.currentRoleId).toBe("doppelganger");
+    expect(result).toEqual({ copiedRoleId: "robber", chained: { newRoleId: "villager" } });
+  });
+
+  it("copies insomniac and defers, recording doppelgangerCopiedRoleId", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const insomniac = player({ id: "i1", originalRoleId: "insomniac", currentRoleId: "insomniac" });
+    const state = stateWith([dopp, insomniac]);
+    const { gameState, result } = doppelgangerResolver("d1", state, { targetPlayerId: "i1" });
+    expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("insomniac");
+    expect(result).toEqual({ copiedRoleId: "insomniac" });
+  });
+});
+
+describe("doppelgangerInsomniacResolver", () => {
+  it("views the doppelganger's own (copied) current role", () => {
+    const dopp = player({ id: "d1", originalRoleId: "doppelganger", currentRoleId: "insomniac" });
+    const { result } = doppelgangerInsomniacResolver("d1", stateWith([dopp]), {});
+    expect(result).toEqual({ roleId: "insomniac" });
+  });
+});
+
+describe("actionResolvers table", () => {
+  it("has an entry for every NightTickId", () => {
+    const expectedKeys = [
+      "doppelganger",
+      "werewolf",
+      "minion",
+      "mason",
+      "seer",
+      "robber",
+      "troublemaker",
+      "drunk",
+      "insomniac",
+      "doppelgangerInsomniac",
+    ];
+    expect(Object.keys(actionResolvers).sort()).toEqual(expectedKeys.sort());
+  });
+});
