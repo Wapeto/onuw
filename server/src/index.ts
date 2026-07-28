@@ -5,6 +5,7 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "@onuw/shared";
+import { attachRedisAdapter } from "./redis/socketAdapter.js";
 
 export function createApp() {
   const httpServer = createServer();
@@ -12,6 +13,7 @@ export function createApp() {
     httpServer,
     { cors: { origin: "*" } },
   );
+  attachRedisAdapter(io);
 
   io.on("connection", (socket) => {
     socket.emit("connected", { socketId: socket.id });
