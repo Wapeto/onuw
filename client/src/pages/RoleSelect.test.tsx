@@ -95,6 +95,39 @@ describe("RoleSelect", () => {
     expect(session.setCustomRoles).toHaveBeenCalled();
   });
 
+  it("toggles mason straight from 0 to 2 on increment", () => {
+    const session = baseSession({
+      roleSelection: { mode: "custom", roles: { werewolf: 2, mason: 0, villager: 1 }, valid: false },
+    });
+    vi.mocked(useRoomSocket).mockReturnValue(session as ReturnType<typeof useRoomSocket>);
+    renderAt("/room/ABCDE/roles");
+    const masonRow = screen.getByText("Franc-Maçon").closest("li")!;
+    const { getByRole } = within(masonRow);
+    fireEvent.click(getByRole("button", { name: "+" }));
+    expect(session.setCustomRoles).toHaveBeenCalledWith(
+      expect.objectContaining({ mason: 2 }),
+    );
+  });
+
+  it("toggles mason straight from 2 to 0 on decrement", () => {
+    const session = baseSession({
+      roleSelection: { mode: "custom", roles: { werewolf: 2, mason: 2, villager: 1 }, valid: false },
+    });
+    vi.mocked(useRoomSocket).mockReturnValue(session as ReturnType<typeof useRoomSocket>);
+    renderAt("/room/ABCDE/roles");
+    const masonRow = screen.getByText("Franc-Maçon").closest("li")!;
+    const { getByRole } = within(masonRow);
+    fireEvent.click(getByRole("button", { name: "-" }));
+    expect(session.setCustomRoles).toHaveBeenCalledWith(
+      expect.objectContaining({ mason: 0 }),
+    );
+  });
+
+  it("hides the custom role checklist from the host in classic mode", () => {
+    renderAt("/room/ABCDE/roles");
+    expect(screen.queryByRole("button", { name: "+" })).not.toBeInTheDocument();
+  });
+
   it("disables incrementing werewolf past 2", () => {
     const session = baseSession({
       roleSelection: { mode: "custom", roles: { werewolf: 2, villager: 1 }, valid: false },
