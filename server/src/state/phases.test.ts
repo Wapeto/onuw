@@ -8,6 +8,7 @@ const base: GameState = {
   players: [],
   center: [],
   night: null,
+  roleSelection: null,
   createdAt: 1,
   updatedAt: 1,
 };

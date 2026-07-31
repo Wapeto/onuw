@@ -7,9 +7,10 @@ function fixture(roomCode: string): GameState {
   return {
     roomCode,
     phase: "LOBBY",
-    players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true }],
+    players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "token1" }],
     center: [],
     night: null,
+    roleSelection: null,
     createdAt: 1,
     updatedAt: 1,
   };

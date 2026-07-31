@@ -41,6 +41,7 @@ describe("GameState shape", () => {
       pseudo: "Alice",
       isHost: true,
       connected: true,
+      reconnectToken: "token1",
       originalRoleId: "seer",
       currentRoleId: "seer",
     };
@@ -50,6 +51,7 @@ describe("GameState shape", () => {
       players: [player],
       center: ["villager", "villager", "tanner"],
       night,
+      roleSelection: null,
       createdAt: 500,
       updatedAt: 1000,
     };
@@ -96,5 +98,52 @@ describe("lobby event contracts", () => {
 
     expect(typeof clientEvents.CREATE_ROOM).toBe("function");
     expect(typeof serverEvents.PLAYER_LIST_UPDATE).toBe("function");
+  });
+});
+
+describe("role-select event contracts", () => {
+  it("GameState carries a nullable roleSelection", () => {
+    const empty: GameState = {
+      roomCode: "ABCD",
+      phase: "LOBBY",
+      players: [],
+      center: [],
+      night: null,
+      roleSelection: null,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const withSelection: GameState = {
+      ...empty,
+      phase: "ROLE_SELECT",
+      roleSelection: { mode: "classic", roles: { werewolf: 2, seer: 1, robber: 1, troublemaker: 1, villager: 1 } },
+    };
+
+    expect(empty.roleSelection).toBeNull();
+    expect(withSelection.roleSelection?.mode).toBe("classic");
+    expect(withSelection.roleSelection?.roles.werewolf).toBe(2);
+  });
+
+  it("wires START_ROLE_SELECT/SET_ROLE_MODE/SET_CUSTOM_ROLES/START_GAME and the ROLE_SELECTION_UPDATE broadcast", () => {
+    const clientEvents: ClientToServerEvents = {
+      ping: () => {},
+      CREATE_ROOM: () => {},
+      JOIN_ROOM: () => {},
+      START_ROLE_SELECT: () => {},
+      SET_ROLE_MODE: () => {},
+      SET_CUSTOM_ROLES: () => {},
+      START_GAME: () => {},
+    };
+    const serverEvents: ServerToClientEvents = {
+      connected: () => {},
+      ROOM_CREATED: () => {},
+      ROOM_JOINED: () => {},
+      PLAYER_LIST_UPDATE: () => {},
+      ROOM_ERROR: () => {},
+      ROLE_SELECTION_UPDATE: () => {},
+    };
+
+    expect(typeof clientEvents.START_GAME).toBe("function");
+    expect(typeof serverEvents.ROLE_SELECTION_UPDATE).toBe("function");
   });
 });

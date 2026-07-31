@@ -110,6 +110,7 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
             ],
             center: [],
             night: null,
+            roleSelection: null,
             createdAt: now,
             updatedAt: now,
           };

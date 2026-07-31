@@ -13,7 +13,7 @@ function player(overrides: Partial<Player>): Player {
 }
 
 function stateWith(players: Player[], center: GameState["center"] = []): GameState {
-  return { roomCode: "ABCD", phase: "NIGHT", players, center, night: null, createdAt: 0, updatedAt: 0 };
+  return { roomCode: "ABCD", phase: "NIGHT", players, center, night: null, roleSelection: null, createdAt: 0, updatedAt: 0 };
 }
 
 function stateWithActiveNight(players: Player[], center: GameState["center"] = []): GameState {

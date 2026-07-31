@@ -7,11 +7,12 @@ function fixture(phase: GameState["phase"]): GameState {
     roomCode: "ABCD",
     phase,
     players: [
-      { id: "p1", pseudo: "Alice", isHost: true, connected: true, originalRoleId: "seer", currentRoleId: "seer" },
-      { id: "p2", pseudo: "Bob", isHost: false, connected: false },
+      { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "token1", originalRoleId: "seer", currentRoleId: "seer" },
+      { id: "p2", pseudo: "Bob", isHost: false, connected: false, reconnectToken: "token2" },
     ],
     center: [],
     night: null,
+    roleSelection: null,
     createdAt: 1,
     updatedAt: 1,
   };

@@ -15,11 +15,12 @@ function fixture(roomCode: string): GameState {
     roomCode,
     phase: "ROLE_SELECT",
     players: [
-      { id: "p1", pseudo: "Alice", isHost: true, connected: true, currentRoleId: "doppelganger" },
-      { id: "p2", pseudo: "Bob", isHost: false, connected: true, currentRoleId: "werewolf" },
+      { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "token1", currentRoleId: "doppelganger" },
+      { id: "p2", pseudo: "Bob", isHost: false, connected: true, reconnectToken: "token2", currentRoleId: "werewolf" },
     ],
     center: [],
     night: null,
+    roleSelection: null,
     createdAt: 0,
     updatedAt: 0,
   };
