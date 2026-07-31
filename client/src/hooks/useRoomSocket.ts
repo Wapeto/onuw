@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
-import type { ClientToServerEvents, PublicPlayer, ServerToClientEvents } from "@onuw/shared";
+import type {
+  ClientToServerEvents,
+  GameMode,
+  PublicPlayer,
+  RoleCounts,
+  ServerToClientEvents,
+} from "@onuw/shared";
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -9,13 +15,24 @@ const STORAGE_ROOM_CODE = "onuw:roomCode";
 const STORAGE_PLAYER_ID = "onuw:playerId";
 const STORAGE_RECONNECT_TOKEN = "onuw:reconnectToken";
 
+export interface RoleSelectionState {
+  mode: GameMode;
+  roles: RoleCounts;
+  valid: boolean;
+}
+
 export interface RoomSession {
   roomCode: string;
   playerId: string;
   players: PublicPlayer[];
+  roleSelection: RoleSelectionState | null;
   error: string | null;
   createRoom: (pseudo: string) => void;
   joinRoom: (roomCode: string, pseudo: string) => void;
+  startRoleSelect: () => void;
+  setRoleMode: (mode: GameMode) => void;
+  setCustomRoles: (roles: RoleCounts) => void;
+  startGame: () => void;
 }
 
 function readStoredSession(): { roomCode: string; playerId: string; reconnectToken: string } {
@@ -37,6 +54,7 @@ export function useRoomSocket(): RoomSession {
   const [roomCode, setRoomCode] = useState("");
   const [playerId, setPlayerId] = useState("");
   const [players, setPlayers] = useState<PublicPlayer[]>([]);
+  const [roleSelection, setRoleSelectionState] = useState<RoleSelectionState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,6 +78,7 @@ export function useRoomSocket(): RoomSession {
       setError(null);
     });
     socket.on("PLAYER_LIST_UPDATE", (payload) => setPlayers(payload.players));
+    socket.on("ROLE_SELECTION_UPDATE", (payload) => setRoleSelectionState(payload));
     socket.on("ROOM_ERROR", (payload) => setError(payload.message));
 
     return () => {
@@ -75,5 +94,33 @@ export function useRoomSocket(): RoomSession {
     socketRef.current?.emit("JOIN_ROOM", { roomCode, pseudo });
   }, []);
 
-  return { roomCode, playerId, players, error, createRoom, joinRoom };
+  const startRoleSelect = useCallback(() => {
+    socketRef.current?.emit("START_ROLE_SELECT");
+  }, []);
+
+  const setRoleMode = useCallback((mode: GameMode) => {
+    socketRef.current?.emit("SET_ROLE_MODE", { mode });
+  }, []);
+
+  const setCustomRoles = useCallback((roles: RoleCounts) => {
+    socketRef.current?.emit("SET_CUSTOM_ROLES", { roles });
+  }, []);
+
+  const startGame = useCallback(() => {
+    socketRef.current?.emit("START_GAME");
+  }, []);
+
+  return {
+    roomCode,
+    playerId,
+    players,
+    roleSelection,
+    error,
+    createRoom,
+    joinRoom,
+    startRoleSelect,
+    setRoleMode,
+    setCustomRoles,
+    startGame,
+  };
 }

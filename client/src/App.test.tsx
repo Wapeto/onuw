@@ -11,9 +11,14 @@ describe("App", () => {
       roomCode: "",
       playerId: "",
       players: [],
+      roleSelection: null,
       error: null,
       createRoom: vi.fn(),
       joinRoom: vi.fn(),
+      startRoleSelect: vi.fn(),
+      setRoleMode: vi.fn(),
+      setCustomRoles: vi.fn(),
+      startGame: vi.fn(),
     });
     render(<App />);
     expect(screen.getByRole("heading", { name: /one night ultimate werewolf/i })).toBeInTheDocument();

@@ -88,4 +88,54 @@ describe("useRoomSocket", () => {
 
     expect(mockSocket.emit).toHaveBeenCalledWith("JOIN_ROOM", { roomCode: "ABCDE", pseudo: "Bob" });
   });
+
+  it("updates roleSelection on ROLE_SELECTION_UPDATE", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      mockSocket.trigger("ROLE_SELECTION_UPDATE", {
+        mode: "classic",
+        roles: { werewolf: 2, villager: 1 },
+        valid: true,
+      });
+    });
+
+    expect(result.current.roleSelection).toEqual({
+      mode: "classic",
+      roles: { werewolf: 2, villager: 1 },
+      valid: true,
+    });
+  });
+
+  it("emits START_ROLE_SELECT", () => {
+    const { result } = renderHook(() => useRoomSocket());
+    act(() => {
+      result.current.startRoleSelect();
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith("START_ROLE_SELECT");
+  });
+
+  it("emits SET_ROLE_MODE with the given mode", () => {
+    const { result } = renderHook(() => useRoomSocket());
+    act(() => {
+      result.current.setRoleMode("simple");
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith("SET_ROLE_MODE", { mode: "simple" });
+  });
+
+  it("emits SET_CUSTOM_ROLES with the given roles", () => {
+    const { result } = renderHook(() => useRoomSocket());
+    act(() => {
+      result.current.setCustomRoles({ werewolf: 2 });
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith("SET_CUSTOM_ROLES", { roles: { werewolf: 2 } });
+  });
+
+  it("emits START_GAME", () => {
+    const { result } = renderHook(() => useRoomSocket());
+    act(() => {
+      result.current.startGame();
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith("START_GAME");
+  });
 });
