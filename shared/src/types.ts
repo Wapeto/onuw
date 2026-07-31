@@ -33,6 +33,7 @@ export interface Player {
   pseudo: string;
   isHost: boolean;
   connected: boolean;
+  reconnectToken: string;
   originalRoleId?: RoleId;
   currentRoleId?: RoleId;
 }
@@ -66,8 +67,8 @@ export interface GameState {
 
 export interface ServerToClientEvents {
   connected: (payload: { socketId: string }) => void;
-  ROOM_CREATED: (payload: { roomCode: string; playerId: string }) => void;
-  ROOM_JOINED: (payload: { roomCode: string; playerId: string }) => void;
+  ROOM_CREATED: (payload: { roomCode: string; playerId: string; reconnectToken: string }) => void;
+  ROOM_JOINED: (payload: { roomCode: string; playerId: string; reconnectToken: string }) => void;
   PLAYER_LIST_UPDATE: (payload: { players: PublicPlayer[] }) => void;
   ROOM_ERROR: (payload: { message: string }) => void;
 }

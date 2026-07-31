@@ -32,17 +32,18 @@ describe("useRoomSocket", () => {
     mockSocket.emit.mockClear();
   });
 
-  it("stores roomCode/playerId in sessionStorage on ROOM_CREATED", () => {
+  it("stores roomCode/playerId/reconnectToken in sessionStorage on ROOM_CREATED", () => {
     const { result } = renderHook(() => useRoomSocket());
 
     act(() => {
-      mockSocket.trigger("ROOM_CREATED", { roomCode: "ABCDE", playerId: "p1" });
+      mockSocket.trigger("ROOM_CREATED", { roomCode: "ABCDE", playerId: "p1", reconnectToken: "tok-1" });
     });
 
     expect(result.current.roomCode).toBe("ABCDE");
     expect(result.current.playerId).toBe("p1");
     expect(sessionStorage.getItem("onuw:roomCode")).toBe("ABCDE");
     expect(sessionStorage.getItem("onuw:playerId")).toBe("p1");
+    expect(sessionStorage.getItem("onuw:reconnectToken")).toBe("tok-1");
   });
 
   it("updates players on PLAYER_LIST_UPDATE", () => {

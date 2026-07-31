@@ -17,7 +17,9 @@ const joinRoomPayloadSchema = z.object({
   roomCode: z.string().trim().min(1).max(10),
   pseudo: pseudoSchema,
 });
-const handshakeAuthSchema = z.object({ roomCode: z.string().min(1), playerId: z.string().min(1) }).partial();
+const handshakeAuthSchema = z
+  .object({ roomCode: z.string().min(1), playerId: z.string().min(1), reconnectToken: z.string().min(1) })
+  .partial();
 
 class RoomNotJoinableError extends Error {
   constructor(roomCode: string) {
@@ -30,13 +32,24 @@ async function broadcastRoster(io: AppServer, state: GameState): Promise<void> {
   io.to(state.roomCode).emit("PLAYER_LIST_UPDATE", { players: toPublicPlayers(state) });
 }
 
-async function setConnected(roomCode: string, playerId: string, connected: boolean): Promise<GameState | null> {
+async function setConnected(
+  roomCode: string,
+  playerId: string,
+  connected: boolean,
+  reconnectToken?: string,
+): Promise<GameState | null> {
   try {
     return await withRoom(roomCode, (room) => {
-      const exists = room.players.some((p) => p.id === playerId);
+      // When a reconnectToken is supplied (the inbound, client-claimed reconnect path),
+      // both id AND token must match the same player. The plain disconnect handler
+      // omits the token since it's server-initiated, not client-claimed.
+      const exists = room.players.some(
+        (p) => p.id === playerId && (reconnectToken === undefined || p.reconnectToken === reconnectToken),
+      );
       if (!exists) {
         // No such player in this room: treat identically to "room not found" so
-        // callers can't use a guessed/stale playerId to attach to someone else's room.
+        // callers can't use a guessed/stale playerId (or a correct id with a wrong
+        // token) to attach to someone else's room.
         throw new RoomNotFoundError(roomCode);
       }
       return {
@@ -56,17 +69,18 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
 
   const authResult = handshakeAuthSchema.safeParse(socket.handshake.auth);
   const auth = authResult.success ? authResult.data : {};
-  if (auth.roomCode && auth.playerId) {
+  if (auth.roomCode && auth.playerId && auth.reconnectToken) {
     const roomCode = auth.roomCode;
     const playerId = auth.playerId;
+    const reconnectToken = auth.reconnectToken;
     void (async () => {
       try {
-        const state = await setConnected(roomCode, playerId, true);
+        const state = await setConnected(roomCode, playerId, true, reconnectToken);
         if (!state) return;
         membership = { roomCode, playerId };
         await socket.join(roomCode);
         await socket.join(playerId);
-        socket.emit("ROOM_JOINED", { roomCode, playerId });
+        socket.emit("ROOM_JOINED", { roomCode, playerId, reconnectToken });
         await broadcastRoster(io, state);
       } catch {
         socket.emit("ROOM_ERROR", { message: "failed to reconnect to room" });
@@ -83,6 +97,7 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
           return;
         }
         const playerId = randomUUID();
+        const reconnectToken = randomUUID();
         const now = Date.now();
         let state: GameState | null = null;
         for (let attempt = 0; attempt < MAX_ROOM_CODE_ATTEMPTS; attempt++) {
@@ -90,7 +105,9 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
           const candidate: GameState = {
             roomCode,
             phase: "LOBBY",
-            players: [{ id: playerId, pseudo: parsed.data.pseudo, isHost: true, connected: true }],
+            players: [
+              { id: playerId, pseudo: parsed.data.pseudo, isHost: true, connected: true, reconnectToken },
+            ],
             center: [],
             night: null,
             createdAt: now,
@@ -108,7 +125,7 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
         membership = { roomCode: state.roomCode, playerId };
         await socket.join(state.roomCode);
         await socket.join(playerId);
-        socket.emit("ROOM_CREATED", { roomCode: state.roomCode, playerId });
+        socket.emit("ROOM_CREATED", { roomCode: state.roomCode, playerId, reconnectToken });
         await broadcastRoster(io, state);
       } catch {
         socket.emit("ROOM_ERROR", { message: "failed to create room" });
@@ -126,6 +143,7 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
         }
         const { roomCode, pseudo } = parsed.data;
         const playerId = randomUUID();
+        const reconnectToken = randomUUID();
         let state: GameState;
         try {
           // Phase check + append happen in a single atomic mutate so a concurrent
@@ -137,7 +155,7 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
             }
             return {
               ...room,
-              players: [...room.players, { id: playerId, pseudo, isHost: false, connected: true }],
+              players: [...room.players, { id: playerId, pseudo, isHost: false, connected: true, reconnectToken }],
               updatedAt: Date.now(),
             };
           });
@@ -155,7 +173,7 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
         membership = { roomCode: state.roomCode, playerId };
         await socket.join(state.roomCode);
         await socket.join(playerId);
-        socket.emit("ROOM_JOINED", { roomCode: state.roomCode, playerId });
+        socket.emit("ROOM_JOINED", { roomCode: state.roomCode, playerId, reconnectToken });
         await broadcastRoster(io, state);
       } catch {
         socket.emit("ROOM_ERROR", { message: "failed to join room" });
@@ -168,6 +186,15 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
     const { roomCode, playerId } = membership;
     void (async () => {
       try {
+        // Socket.io removes a disconnecting socket from all its rooms (including its
+        // per-player room) before this handler runs, so if another live socket for the
+        // same player is still joined (e.g. the brief overlap between an old page's
+        // socket closing and a new page's socket reconnecting), fetchSockets() here
+        // won't include the one that's disconnecting. Only mark the player disconnected
+        // once no live socket remains for them, to avoid a stale-write race flipping
+        // `connected` to false right after a newer connection already flipped it true.
+        const remaining = await io.in(playerId).fetchSockets();
+        if (remaining.length > 0) return;
         const state = await setConnected(roomCode, playerId, false);
         if (state) await broadcastRoster(io, state);
       } catch {

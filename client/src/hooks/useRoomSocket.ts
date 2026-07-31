@@ -7,6 +7,7 @@ type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 const SOCKET_URL = import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001";
 const STORAGE_ROOM_CODE = "onuw:roomCode";
 const STORAGE_PLAYER_ID = "onuw:playerId";
+const STORAGE_RECONNECT_TOKEN = "onuw:reconnectToken";
 
 export interface RoomSession {
   roomCode: string;
@@ -17,16 +18,18 @@ export interface RoomSession {
   joinRoom: (roomCode: string, pseudo: string) => void;
 }
 
-function readStoredSession(): { roomCode: string; playerId: string } {
+function readStoredSession(): { roomCode: string; playerId: string; reconnectToken: string } {
   return {
     roomCode: sessionStorage.getItem(STORAGE_ROOM_CODE) ?? "",
     playerId: sessionStorage.getItem(STORAGE_PLAYER_ID) ?? "",
+    reconnectToken: sessionStorage.getItem(STORAGE_RECONNECT_TOKEN) ?? "",
   };
 }
 
-function storeSession(roomCode: string, playerId: string): void {
+function storeSession(roomCode: string, playerId: string, reconnectToken: string): void {
   sessionStorage.setItem(STORAGE_ROOM_CODE, roomCode);
   sessionStorage.setItem(STORAGE_PLAYER_ID, playerId);
+  sessionStorage.setItem(STORAGE_RECONNECT_TOKEN, reconnectToken);
 }
 
 export function useRoomSocket(): RoomSession {
@@ -40,18 +43,18 @@ export function useRoomSocket(): RoomSession {
     const stored = readStoredSession();
     const socket: AppSocket = io(SOCKET_URL, {
       transports: ["websocket"],
-      auth: stored.roomCode && stored.playerId ? stored : {},
+      auth: stored.roomCode && stored.playerId && stored.reconnectToken ? stored : {},
     });
     socketRef.current = socket;
 
     socket.on("ROOM_CREATED", (payload) => {
-      storeSession(payload.roomCode, payload.playerId);
+      storeSession(payload.roomCode, payload.playerId, payload.reconnectToken);
       setRoomCode(payload.roomCode);
       setPlayerId(payload.playerId);
       setError(null);
     });
     socket.on("ROOM_JOINED", (payload) => {
-      storeSession(payload.roomCode, payload.playerId);
+      storeSession(payload.roomCode, payload.playerId, payload.reconnectToken);
       setRoomCode(payload.roomCode);
       setPlayerId(payload.playerId);
       setError(null);

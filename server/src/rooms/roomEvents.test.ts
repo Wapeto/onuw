@@ -108,15 +108,48 @@ describe("room events", () => {
     expect(roster.players.find((p) => p.pseudo === "Bob")?.connected).toBe(false);
   });
 
-  it("reattaches to an existing room via handshake auth", async () => {
+  it("keeps a player connected when a second socket for the same player is still joined", async () => {
+    // Regresses the Home -> Lobby navigation race: the old page's socket disconnects
+    // (and would normally mark the player disconnected) while a new page's socket for
+    // the SAME player is already reconnected. The player must not flicker to
+    // disconnected while any live socket for them remains.
     const host = await connect();
-    const created = await new Promise<{ roomCode: string; playerId: string }>((resolve) => {
+    const created = await new Promise<{ roomCode: string; playerId: string; reconnectToken: string }>((resolve) => {
       host.on("ROOM_CREATED", resolve);
       host.emit("CREATE_ROOM", { pseudo: "Alice" });
     });
 
-    const reattached = await connect({ roomCode: created.roomCode, playerId: created.playerId });
-    const joined = await new Promise<{ roomCode: string; playerId: string }>((resolve) => {
+    const secondSocketForHost = await connect({
+      roomCode: created.roomCode,
+      playerId: created.playerId,
+      reconnectToken: created.reconnectToken,
+    });
+    await new Promise<void>((resolve) => {
+      secondSocketForHost.on("ROOM_JOINED", () => resolve());
+    });
+
+    host.close();
+    // Give the disconnect handler's fetchSockets()/setConnected() round-trip time to run
+    // (and prove it does NOT flip connected to false) before asserting on stored state.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const state = await getRoom(created.roomCode);
+    expect(state?.players.find((p) => p.id === created.playerId)?.connected).toBe(true);
+  });
+
+  it("reattaches to an existing room via handshake auth", async () => {
+    const host = await connect();
+    const created = await new Promise<{ roomCode: string; playerId: string; reconnectToken: string }>((resolve) => {
+      host.on("ROOM_CREATED", resolve);
+      host.emit("CREATE_ROOM", { pseudo: "Alice" });
+    });
+
+    const reattached = await connect({
+      roomCode: created.roomCode,
+      playerId: created.playerId,
+      reconnectToken: created.reconnectToken,
+    });
+    const joined = await new Promise<{ roomCode: string; playerId: string; reconnectToken: string }>((resolve) => {
       reattached.on("ROOM_JOINED", resolve);
     });
 
@@ -146,13 +179,17 @@ describe("room events", () => {
 
   it("does not reattach when the handshake playerId does not belong to the room", async () => {
     const host = await connect();
-    const created = await new Promise<{ roomCode: string; playerId: string }>((resolve) => {
+    const created = await new Promise<{ roomCode: string; playerId: string; reconnectToken: string }>((resolve) => {
       host.on("ROOM_CREATED", resolve);
       host.emit("CREATE_ROOM", { pseudo: "Alice" });
     });
 
     let joined = false;
-    const impostor = await connect({ roomCode: created.roomCode, playerId: "not-a-real-player-id" });
+    const impostor = await connect({
+      roomCode: created.roomCode,
+      playerId: "not-a-real-player-id",
+      reconnectToken: "not-a-real-token",
+    });
     impostor.on("ROOM_JOINED", () => {
       joined = true;
     });
@@ -162,5 +199,29 @@ describe("room events", () => {
     expect(joined).toBe(false);
     const state = await getRoom(created.roomCode);
     expect(state?.players.map((p) => p.id)).toEqual([created.playerId]);
+  });
+
+  it("does not reattach when the handshake reconnectToken does not match the real player's token", async () => {
+    const host = await connect();
+    const created = await new Promise<{ roomCode: string; playerId: string; reconnectToken: string }>((resolve) => {
+      host.on("ROOM_CREATED", resolve);
+      host.emit("CREATE_ROOM", { pseudo: "Alice" });
+    });
+
+    let joined = false;
+    const impostor = await connect({
+      roomCode: created.roomCode,
+      playerId: created.playerId,
+      reconnectToken: "wrong-reconnect-token",
+    });
+    impostor.on("ROOM_JOINED", () => {
+      joined = true;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    expect(joined).toBe(false);
+    const state = await getRoom(created.roomCode);
+    expect(state?.players.find((p) => p.id === created.playerId)?.connected).toBe(true);
   });
 });
