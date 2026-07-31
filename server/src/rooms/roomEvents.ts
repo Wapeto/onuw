@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Server, Socket } from "socket.io";
 import type { ClientToServerEvents, GameState, ServerToClientEvents } from "@onuw/shared";
+import { validateRoleSelection } from "@onuw/shared";
 import { generateRoomCode } from "./roomCode.js";
 import { createRoom, withRoom, RoomNotFoundError } from "./roomStore.js";
 import { toPublicPlayers } from "./roomView.js";
+import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -64,8 +66,8 @@ async function setConnected(
   }
 }
 
-export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
-  let membership: { roomCode: string; playerId: string } | null = null;
+export function registerRoomEvents(io: AppServer, socket: AppSocket, tickRunner: RoleSelectTickRunner): void {
+  let membership: Membership | null = null;
 
   const authResult = handshakeAuthSchema.safeParse(socket.handshake.auth);
   const auth = authResult.success ? authResult.data : {};
@@ -82,6 +84,14 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
         await socket.join(playerId);
         socket.emit("ROOM_JOINED", { roomCode, playerId, reconnectToken });
         await broadcastRoster(io, state);
+        if (state.roleSelection) {
+          const { valid } = validateRoleSelection(state.roleSelection.mode, state.players.length, state.roleSelection.roles);
+          socket.emit("ROLE_SELECTION_UPDATE", {
+            mode: state.roleSelection.mode,
+            roles: state.roleSelection.roles,
+            valid,
+          });
+        }
       } catch {
         socket.emit("ROOM_ERROR", { message: "failed to reconnect to room" });
       }
@@ -203,4 +213,6 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket): void {
       }
     })();
   });
+
+  registerRoleSelectEvents(io, socket, () => membership, tickRunner);
 }

@@ -18,7 +18,7 @@ export function createApp() {
 
   io.on("connection", (socket) => {
     socket.emit("connected", { socketId: socket.id });
-    registerRoomEvents(io, socket);
+    registerRoomEvents(io, socket, { startNight: async () => {} });
   });
 
   return { httpServer, io, subClient };
