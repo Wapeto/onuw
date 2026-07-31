@@ -228,6 +228,9 @@ Tu as choisi "pause + grace period". Reste un sous-cas : **que se passe-t-il si 
 
 **Dépendances :** toutes les phases précédentes (couche finale).
 
+**Prérequis identifiés par la revue finale rétroactive de Phase 2 (bloquants avant tout déploiement public) :**
+- **Aucun rate limiting sur `CREATE_ROOM`/`JOIN_ROOM` (`server/src/rooms/roomEvents.ts:101,147`).** N'importe quel socket connecté peut spammer `CREATE_ROOM` en boucle — chaque succès écrit une clé Redis avec TTL 4h, donc un client trivial peut inonder Redis de rooms fantômes ; `JOIN_ROOM` spam martèle de la même façon la boucle CAS de `withRoom`. Pas bloquant en dev/local, mais à traiter avant tout déploiement public. Fix : un petit token-bucket par socket autour des handlers mutants.
+
 ---
 
 ## Prochaine étape
