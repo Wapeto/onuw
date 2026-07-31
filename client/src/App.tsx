@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import Lobby from "./pages/Lobby";
+import RoleSelect from "./pages/RoleSelect";
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/join/:code" element={<Home />} />
         <Route path="/room/:roomCode" element={<Lobby />} />
+        <Route path="/room/:roomCode/roles" element={<RoleSelect />} />
       </Routes>
     </BrowserRouter>
   );
