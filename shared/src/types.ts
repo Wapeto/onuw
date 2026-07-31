@@ -37,6 +37,13 @@ export interface Player {
   currentRoleId?: RoleId;
 }
 
+export interface PublicPlayer {
+  id: string;
+  pseudo: string;
+  isHost: boolean;
+  connected: boolean | null;
+}
+
 export interface NightState {
   tickIndex: number;
   tickStartedAt: number;
@@ -59,8 +66,14 @@ export interface GameState {
 
 export interface ServerToClientEvents {
   connected: (payload: { socketId: string }) => void;
+  ROOM_CREATED: (payload: { roomCode: string; playerId: string }) => void;
+  ROOM_JOINED: (payload: { roomCode: string; playerId: string }) => void;
+  PLAYER_LIST_UPDATE: (payload: { players: PublicPlayer[] }) => void;
+  ROOM_ERROR: (payload: { message: string }) => void;
 }
 
 export interface ClientToServerEvents {
   ping: () => void;
+  CREATE_ROOM: (payload: { pseudo: string }) => void;
+  JOIN_ROOM: (payload: { roomCode: string; pseudo: string }) => void;
 }

@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import type { GameState, NightState, Player } from "./types";
+import type {
+  GameState,
+  NightState,
+  Player,
+  PublicPlayer,
+  ServerToClientEvents,
+  ClientToServerEvents,
+} from "./types";
 import { ROLE_IDS, isValidRoleId } from "./types";
 
 describe("isValidRoleId", () => {
@@ -49,5 +56,45 @@ describe("GameState shape", () => {
 
     expect(state.night?.tickIndex).toBe(2);
     expect(state.players[0].currentRoleId).toBe("seer");
+  });
+});
+
+describe("lobby event contracts", () => {
+  it("PublicPlayer never carries role fields, and allows a masked connected state", () => {
+    const visible: PublicPlayer = {
+      id: "p1",
+      pseudo: "Alice",
+      isHost: true,
+      connected: true,
+    };
+    const masked: PublicPlayer = {
+      id: "p2",
+      pseudo: "Bob",
+      isHost: false,
+      connected: null,
+    };
+
+    expect(visible.connected).toBe(true);
+    expect(masked.connected).toBeNull();
+    // @ts-expect-error PublicPlayer must not expose role fields
+    expect(visible.originalRoleId).toBeUndefined();
+  });
+
+  it("wires CREATE_ROOM/JOIN_ROOM and their server responses", () => {
+    const clientEvents: ClientToServerEvents = {
+      ping: () => {},
+      CREATE_ROOM: (_payload: { pseudo: string }) => {},
+      JOIN_ROOM: (_payload: { roomCode: string; pseudo: string }) => {},
+    };
+    const serverEvents: ServerToClientEvents = {
+      connected: (_payload: { socketId: string }) => {},
+      ROOM_CREATED: (_payload: { roomCode: string; playerId: string }) => {},
+      ROOM_JOINED: (_payload: { roomCode: string; playerId: string }) => {},
+      PLAYER_LIST_UPDATE: (_payload: { players: PublicPlayer[] }) => {},
+      ROOM_ERROR: (_payload: { message: string }) => {},
+    };
+
+    expect(typeof clientEvents.CREATE_ROOM).toBe("function");
+    expect(typeof serverEvents.PLAYER_LIST_UPDATE).toBe("function");
   });
 });
