@@ -55,7 +55,7 @@ export function flattenRoleCounts(roles: RoleCounts): RoleId[] {
 }
 
 const SINGLETON_ROLES: RoleId[] = [
-  "doppelganger", "seer", "robber", "troublemaker", "drunk", "minion", "hunter", "tanner", "villageIdiot",
+  "doppelganger", "seer", "robber", "troublemaker", "drunk", "insomniac", "minion", "hunter", "tanner", "villageIdiot",
 ];
 const CUSTOM_ONLY_ROLES: RoleId[] = ["doppelganger", "villageIdiot"];
 

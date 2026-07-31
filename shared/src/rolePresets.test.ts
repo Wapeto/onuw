@@ -131,6 +131,12 @@ describe("validateRoleSelection", () => {
     expect(result.valid).toBe(false);
   });
 
+  it("rejects multiple insomniac cards (insomniac is singleton)", () => {
+    const result = validateRoleSelection("custom", 7, { werewolf: 2, robber: 1, insomniac: 2, villager: 5 });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("insomniac"))).toBe(true);
+  });
+
   it("rejects a player count outside 3-10", () => {
     const result = validateRoleSelection("custom", 2, { werewolf: 2, villager: 3 });
     expect(result.valid).toBe(false);
