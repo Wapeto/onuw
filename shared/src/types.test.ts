@@ -83,15 +83,15 @@ describe("lobby event contracts", () => {
   it("wires CREATE_ROOM/JOIN_ROOM and their server responses", () => {
     const clientEvents: ClientToServerEvents = {
       ping: () => {},
-      CREATE_ROOM: (_payload: { pseudo: string }) => {},
-      JOIN_ROOM: (_payload: { roomCode: string; pseudo: string }) => {},
+      CREATE_ROOM: () => {},
+      JOIN_ROOM: () => {},
     };
     const serverEvents: ServerToClientEvents = {
-      connected: (_payload: { socketId: string }) => {},
-      ROOM_CREATED: (_payload: { roomCode: string; playerId: string }) => {},
-      ROOM_JOINED: (_payload: { roomCode: string; playerId: string }) => {},
-      PLAYER_LIST_UPDATE: (_payload: { players: PublicPlayer[] }) => {},
-      ROOM_ERROR: (_payload: { message: string }) => {},
+      connected: () => {},
+      ROOM_CREATED: () => {},
+      ROOM_JOINED: () => {},
+      PLAYER_LIST_UPDATE: () => {},
+      ROOM_ERROR: () => {},
     };
 
     expect(typeof clientEvents.CREATE_ROOM).toBe("function");
