@@ -107,7 +107,7 @@ describe("role select events", () => {
   });
 
   // un-skipped in Task 5, once index.ts wires the real TickRunner
-  it.skip("deals roles and starts the night sequence on START_GAME", async () => {
+  it("deals roles and starts the night sequence on START_GAME", async () => {
     const { host, roomCode } = await roomWithThreePlayers();
     host.emit("START_ROLE_SELECT");
     await new Promise<void>((resolve) => host.once("ROLE_SELECTION_UPDATE", () => resolve()));

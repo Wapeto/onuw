@@ -7,6 +7,7 @@ import type {
 } from "@onuw/shared";
 import { attachRedisAdapter } from "./redis/socketAdapter.js";
 import { registerRoomEvents } from "./rooms/roomEvents.js";
+import { createTickRunner } from "./night/tickRunner.js";
 
 export function createApp() {
   const httpServer = createServer();
@@ -16,9 +17,21 @@ export function createApp() {
   );
   const subClient = attachRedisAdapter(io);
 
+  // TICK_START/TICK_PAYLOAD/NIGHT_END aren't in ServerToClientEvents yet (Phase 4
+  // adds that typed contract, per the Phase 1 final-review prerequisite) — the
+  // TickRunner's own deps intentionally stay string-typed until then.
+  const tickRunner = createTickRunner({
+    broadcast: (roomCode, event, payload) => {
+      (io.to(roomCode) as unknown as { emit(event: string, payload: unknown): void }).emit(event, payload);
+    },
+    emitToPlayer: (playerId, event, payload) => {
+      (io.to(playerId) as unknown as { emit(event: string, payload: unknown): void }).emit(event, payload);
+    },
+  });
+
   io.on("connection", (socket) => {
     socket.emit("connected", { socketId: socket.id });
-    registerRoomEvents(io, socket, { startNight: async () => {} });
+    registerRoomEvents(io, socket, tickRunner);
   });
 
   return { httpServer, io, subClient };
