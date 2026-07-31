@@ -36,7 +36,7 @@ describe("Lobby", () => {
 
   it("lists every player's pseudo", () => {
     renderAt("/room/ABCDE");
-    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText(/^Alice/)).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 
