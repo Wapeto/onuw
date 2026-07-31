@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from
 import { io as ioClient, type Socket } from "socket.io-client";
 import { createApp, listen } from "../index.js";
 import { getRedisClient, closeRedisClient } from "../redis/client.js";
+import { getRoom, saveRoom } from "./roomStore.js";
 
 describe("room events", () => {
   let app: ReturnType<typeof createApp>;
@@ -120,5 +121,46 @@ describe("room events", () => {
     });
 
     expect(joined).toEqual(created);
+  });
+
+  it("rejects JOIN_ROOM once the room has left LOBBY, without adding the player", async () => {
+    const host = await connect();
+    const created = await new Promise<{ roomCode: string; playerId: string }>((resolve) => {
+      host.on("ROOM_CREATED", resolve);
+      host.emit("CREATE_ROOM", { pseudo: "Alice" });
+    });
+
+    const inProgress = await getRoom(created.roomCode);
+    await saveRoom({ ...inProgress!, phase: "ROLE_SELECT" });
+
+    const guest = await connect();
+    const err = await new Promise<{ message: string }>((resolve) => {
+      guest.on("ROOM_ERROR", resolve);
+      guest.emit("JOIN_ROOM", { roomCode: created.roomCode, pseudo: "Bob" });
+    });
+    expect(err.message).toMatch(/already in progress/);
+
+    const state = await getRoom(created.roomCode);
+    expect(state?.players.map((p) => p.pseudo)).toEqual(["Alice"]);
+  });
+
+  it("does not reattach when the handshake playerId does not belong to the room", async () => {
+    const host = await connect();
+    const created = await new Promise<{ roomCode: string; playerId: string }>((resolve) => {
+      host.on("ROOM_CREATED", resolve);
+      host.emit("CREATE_ROOM", { pseudo: "Alice" });
+    });
+
+    let joined = false;
+    const impostor = await connect({ roomCode: created.roomCode, playerId: "not-a-real-player-id" });
+    impostor.on("ROOM_JOINED", () => {
+      joined = true;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    expect(joined).toBe(false);
+    const state = await getRoom(created.roomCode);
+    expect(state?.players.map((p) => p.id)).toEqual([created.playerId]);
   });
 });
