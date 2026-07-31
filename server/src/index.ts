@@ -6,6 +6,7 @@ import type {
   ServerToClientEvents,
 } from "@onuw/shared";
 import { attachRedisAdapter } from "./redis/socketAdapter.js";
+import { registerRoomEvents } from "./rooms/roomEvents.js";
 
 export function createApp() {
   const httpServer = createServer();
@@ -17,6 +18,7 @@ export function createApp() {
 
   io.on("connection", (socket) => {
     socket.emit("connected", { socketId: socket.id });
+    registerRoomEvents(io, socket);
   });
 
   return { httpServer, io, subClient };
