@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll } from "vitest";
 import type { GameState } from "@onuw/shared";
 import { getRedisClient, closeRedisClient } from "../redis/client.js";
-import { createRoom, getRoom, saveRoom, deleteRoom, ROOM_TTL_SECONDS } from "./roomStore.js";
+import { createRoom, getRoom, saveRoom, deleteRoom, withRoom, RoomNotFoundError, ROOM_TTL_SECONDS } from "./roomStore.js";
 
 function fixture(roomCode: string): GameState {
   return {
@@ -73,5 +73,39 @@ describe("roomStore", () => {
 
     const loaded = await getRoom("QRST");
     expect(loaded).toEqual(first);
+  });
+});
+
+describe("withRoom", () => {
+  it("applies a mutation and returns the updated state", async () => {
+    const state = fixture("WITH");
+    await createRoom(state);
+
+    const updated = await withRoom("WITH", (room) => ({ ...room, phase: "ROLE_SELECT" }));
+
+    expect(updated.phase).toBe("ROLE_SELECT");
+    expect((await getRoom("WITH"))?.phase).toBe("ROLE_SELECT");
+  });
+
+  it("throws RoomNotFoundError for an unknown room code", async () => {
+    await expect(withRoom("NOPE", (room) => room)).rejects.toThrow(RoomNotFoundError);
+  });
+
+  it("resolves concurrent mutations without losing any write", async () => {
+    const state = fixture("CONC");
+    await createRoom(state);
+
+    await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        withRoom("CONC", (room) => ({
+          ...room,
+          players: [...room.players, { id: `p${i}`, pseudo: `P${i}`, isHost: false, connected: true }],
+          updatedAt: Date.now(),
+        })),
+      ),
+    );
+
+    const loaded = await getRoom("CONC");
+    expect(loaded?.players).toHaveLength(1 + 8);
   });
 });

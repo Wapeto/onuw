@@ -28,3 +28,37 @@ export async function deleteRoom(roomCode: string): Promise<void> {
   const redis = getRedisClient();
   await redis.del(roomKey(roomCode));
 }
+
+export class RoomNotFoundError extends Error {
+  constructor(roomCode: string) {
+    super(`room ${roomCode} not found`);
+    this.name = "RoomNotFoundError";
+  }
+}
+
+export async function withRoom(
+  roomCode: string,
+  mutate: (state: GameState) => GameState,
+  maxAttempts = 20,
+): Promise<GameState> {
+  const key = roomKey(roomCode);
+  // WATCH is connection-scoped: a dedicated connection per call keeps concurrent
+  // withRoom() invocations from merging watch state and silently breaking the CAS.
+  const conn = getRedisClient().duplicate();
+  try {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await conn.watch(key);
+      const raw = await conn.get(key);
+      if (!raw) {
+        await conn.unwatch();
+        throw new RoomNotFoundError(roomCode);
+      }
+      const next = mutate(JSON.parse(raw) as GameState);
+      const result = await conn.multi().set(key, JSON.stringify(next), "EX", ROOM_TTL_SECONDS).exec();
+      if (result !== null) return next;
+    }
+    throw new Error(`withRoom: exceeded ${maxAttempts} attempts for room ${roomCode}`);
+  } finally {
+    await conn.quit();
+  }
+}
