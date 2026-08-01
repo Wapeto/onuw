@@ -7,6 +7,7 @@ import { generateRoomCode } from "./roomCode.js";
 import { createRoom, withRoom, RoomNotFoundError } from "./roomStore.js";
 import { toPublicPlayers } from "./roomView.js";
 import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
+import { registerNightActionEvents } from "../night/nightActionEvents.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -215,4 +216,5 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket, tickRunner:
   });
 
   registerRoleSelectEvents(io, socket, () => membership, tickRunner);
+  registerNightActionEvents(io, socket, () => membership);
 }
