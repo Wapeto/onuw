@@ -12,11 +12,15 @@ type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 class NotInNightError extends Error {}
 class StaleTickError extends Error {}
 class NotActiveError extends Error {}
+class AlreadyActedError extends Error {}
+class InvalidSubActionError extends Error {}
 
 function errorMessageFor(err: unknown): string {
   if (err instanceof NotInNightError) return "aucune nuit en cours";
   if (err instanceof StaleTickError) return "ce tick est terminé";
   if (err instanceof NotActiveError) return "aucune action à faire ce tick";
+  if (err instanceof AlreadyActedError) return "tu as déjà agi ce tour";
+  if (err instanceof InvalidSubActionError) return "action de nuit invalide";
   return "action de nuit invalide";
 }
 
@@ -47,10 +51,43 @@ export function registerNightActionEvents(
         if (tick.tickId !== payload.tickId) throw new StaleTickError();
         const player = room.players.find((p) => p.id === membership.playerId);
         if (!player || !tick.activeFor(player, room)) throw new NotActiveError();
+
+        const resolvedCount = room.night.resolvedActions?.[membership.playerId] ?? 0;
+        const maxAllowed = payload.tickId === "doppelganger" ? 2 : 1;
+        if (resolvedCount >= maxAllowed) throw new AlreadyActedError();
+
+        if (payload.tickId === "doppelganger") {
+          const doppelgangerParams = parsedParams.data as {
+            targetPlayerId: string;
+            subParams?: Record<string, unknown>;
+          };
+          if (doppelgangerParams.subParams !== undefined) {
+            const target = room.players.find((p) => p.id === doppelgangerParams.targetPlayerId);
+            const copiedRoleId = target?.originalRoleId;
+            if (copiedRoleId && Object.hasOwn(actionParamsSchemas, copiedRoleId)) {
+              const subSchema = actionParamsSchemas[copiedRoleId as NightTickId];
+              if (!subSchema.safeParse(doppelgangerParams.subParams).success) {
+                throw new InvalidSubActionError();
+              }
+            }
+          }
+        }
+
         const resolver = actionResolvers[tick.tickId];
         const outcome = resolver(membership.playerId, room, parsedParams.data as never);
         result = outcome.result;
-        return outcome.gameState;
+
+        if (!outcome.gameState.night) return outcome.gameState;
+        return {
+          ...outcome.gameState,
+          night: {
+            ...outcome.gameState.night,
+            resolvedActions: {
+              ...(outcome.gameState.night.resolvedActions ?? room.night.resolvedActions ?? {}),
+              [membership.playerId]: resolvedCount + 1,
+            },
+          },
+        };
       });
       socket.emit("ACTION_RESULT", { tickId: payload.tickId, result });
     } catch (err) {

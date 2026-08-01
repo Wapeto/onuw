@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from "vitest";
 import type { GameState } from "@onuw/shared";
 import { getRedisClient, closeRedisClient } from "../redis/client.js";
-import { createRoom, getRoom } from "../rooms/roomStore.js";
+import { createRoom, getRoom, saveRoom } from "../rooms/roomStore.js";
 import { createTickRunner } from "./tickRunner.js";
 import type { NightTick } from "./nightOrder.js";
 
@@ -55,6 +55,28 @@ describe("tickRunner", () => {
     expect(emitToPlayer).toHaveBeenCalledWith("p1", "TICK_PAYLOAD", { tickId: "doppelganger", active: true });
     expect(emitToPlayer).toHaveBeenCalledWith("p2", "TICK_PAYLOAD", { tickId: "doppelganger", active: false });
     expect(scheduleAdvance).toHaveBeenCalledWith("ABCD", 100, expect.any(Number));
+  });
+
+  it("resets resolvedActions to an empty map at the start of each tick", async () => {
+    await createRoom(fixture("RSET"));
+    const runner = createTickRunner({
+      broadcast: vi.fn(),
+      emitToPlayer: vi.fn(),
+      scheduleAdvance: vi.fn(),
+      nightOrder: TEST_ORDER,
+      jitterMs: 0,
+    });
+
+    await runner.startNight("RSET");
+    expect((await getRoom("RSET"))?.night?.resolvedActions).toEqual({});
+
+    const room = await getRoom("RSET");
+    await saveRoom({ ...room!, night: { ...room!.night!, resolvedActions: { p1: 1 } } });
+
+    await runner.advanceTick("RSET");
+    const advanced = await getRoom("RSET");
+    expect(advanced?.night?.tickIndex).toBe(1);
+    expect(advanced?.night?.resolvedActions).toEqual({});
   });
 
   it("advanceTick moves to the next tick", async () => {

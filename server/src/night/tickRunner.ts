@@ -33,7 +33,7 @@ export function createTickRunner(deps: TickRunnerDeps) {
     const durationMs = computeDuration(tick, jitterMs);
     const updated: GameState = {
       ...room,
-      night: { ...room.night, durationMs, tickStartedAt: Date.now(), paused: false, remainingMsAtPause: null },
+      night: { ...room.night, durationMs, tickStartedAt: Date.now(), paused: false, remainingMsAtPause: null, resolvedActions: {} },
       updatedAt: Date.now(),
     };
     await saveRoom(updated);
@@ -59,6 +59,7 @@ export function createTickRunner(deps: TickRunnerDeps) {
         remainingMsAtPause: null,
         doppelgangerCopiedRoleId: null,
         doppelgangerCopiedPlayerId: null,
+        resolvedActions: {},
       },
     };
     await saveRoom(updated);

@@ -77,6 +77,7 @@ export interface NightState {
   remainingMsAtPause: number | null;
   doppelgangerCopiedRoleId: RoleId | null;
   doppelgangerCopiedPlayerId: string | null;
+  resolvedActions?: Record<string, number>;
 }
 
 export interface GameState {
