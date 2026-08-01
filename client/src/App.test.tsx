@@ -19,6 +19,11 @@ describe("App", () => {
       setRoleMode: vi.fn(),
       setCustomRoles: vi.fn(),
       startGame: vi.fn(),
+      currentTick: null,
+      nightPaused: false,
+      nightEnded: false,
+      actionResult: null,
+      submitNightAction: vi.fn(),
     });
     render(<App />);
     expect(screen.getByRole("heading", { name: /one night ultimate werewolf/i })).toBeInTheDocument();
@@ -37,6 +42,11 @@ describe("App", () => {
       setRoleMode: vi.fn(),
       setCustomRoles: vi.fn(),
       startGame: vi.fn(),
+      currentTick: null,
+      nightPaused: false,
+      nightEnded: false,
+      actionResult: null,
+      submitNightAction: vi.fn(),
     });
     window.history.pushState({}, "", "/room/ABCDE/roles");
     render(<App />);

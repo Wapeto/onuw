@@ -37,6 +37,11 @@ function baseSession(overrides: Record<string, unknown> = {}) {
     setRoleMode: vi.fn(),
     setCustomRoles: vi.fn(),
     startGame: vi.fn(),
+    currentTick: null,
+    nightPaused: false,
+    nightEnded: false,
+    actionResult: null,
+    submitNightAction: vi.fn(),
     ...overrides,
   };
 }
