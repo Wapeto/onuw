@@ -129,7 +129,7 @@ export const doppelgangerResolver: ActionResolver<
     },
   };
 
-  if (IMMEDIATE_CHAIN_ROLES.includes(copiedRoleId)) {
+  if (IMMEDIATE_CHAIN_ROLES.includes(copiedRoleId) && params.subParams !== undefined) {
     // Chain onto the copied role's own resolver with the Doppelganger's card still
     // physically labeled "doppelganger" (currentRoleId unchanged so far). This matters
     // for resolvers that move the acting player's own card (robber, drunk): the card

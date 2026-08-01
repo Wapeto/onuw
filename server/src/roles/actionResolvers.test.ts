@@ -230,6 +230,32 @@ describe("doppelgangerResolver", () => {
       /outside an active night tick/,
     );
   });
+
+  it("phase 1 (no subParams) reveals the copied role without running its chain, even for a chain-eligible role", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const rob = player({ id: "r1", originalRoleId: "robber", currentRoleId: "robber" });
+    const state = stateWithActiveNight([dopp, rob]);
+
+    const { gameState, result } = doppelgangerResolver("d1", state, { targetPlayerId: "r1" });
+
+    expect(result).toEqual({ copiedRoleId: "robber" });
+    expect(gameState.night?.doppelgangerCopiedRoleId).toBe("robber");
+  });
+
+  it("phase 2 (same target, real subParams) runs the chain", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const rob = player({ id: "r1", originalRoleId: "robber", currentRoleId: "robber" });
+    const victim = player({ id: "v1", originalRoleId: "villager", currentRoleId: "villager" });
+    const state = stateWithActiveNight([dopp, rob, victim]);
+
+    const { result } = doppelgangerResolver("d1", state, {
+      targetPlayerId: "r1",
+      subParams: { targetPlayerId: "v1" },
+    });
+
+    expect(result.copiedRoleId).toBe("robber");
+    expect(result.chained).toEqual({ newRoleId: "villager" });
+  });
 });
 
 describe("doppelgangerInsomniacResolver", () => {
