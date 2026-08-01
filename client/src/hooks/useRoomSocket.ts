@@ -3,6 +3,7 @@ import { io, type Socket } from "socket.io-client";
 import type {
   ClientToServerEvents,
   GameMode,
+  NightTickId,
   PublicPlayer,
   RoleCounts,
   ServerToClientEvents,
@@ -14,6 +15,13 @@ const SOCKET_URL = import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001";
 const STORAGE_ROOM_CODE = "onuw:roomCode";
 const STORAGE_PLAYER_ID = "onuw:playerId";
 const STORAGE_RECONNECT_TOKEN = "onuw:reconnectToken";
+
+export interface CurrentTick {
+  tickIndex: number;
+  tickId: NightTickId;
+  durationMs: number;
+  active: boolean;
+}
 
 export interface RoleSelectionState {
   mode: GameMode;
@@ -33,6 +41,11 @@ export interface RoomSession {
   setRoleMode: (mode: GameMode) => void;
   setCustomRoles: (roles: RoleCounts) => void;
   startGame: () => void;
+  currentTick: CurrentTick | null;
+  nightPaused: boolean;
+  nightEnded: boolean;
+  actionResult: { tickId: NightTickId; result: unknown } | null;
+  submitNightAction: (tickId: NightTickId, params: Record<string, unknown>) => void;
 }
 
 function readStoredSession(): { roomCode: string; playerId: string; reconnectToken: string } {
@@ -56,6 +69,10 @@ export function useRoomSocket(): RoomSession {
   const [players, setPlayers] = useState<PublicPlayer[]>([]);
   const [roleSelection, setRoleSelectionState] = useState<RoleSelectionState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentTick, setCurrentTick] = useState<CurrentTick | null>(null);
+  const [nightPaused, setNightPaused] = useState(false);
+  const [nightEnded, setNightEnded] = useState(false);
+  const [actionResult, setActionResult] = useState<{ tickId: NightTickId; result: unknown } | null>(null);
 
   useEffect(() => {
     const stored = readStoredSession();
@@ -80,6 +97,22 @@ export function useRoomSocket(): RoomSession {
     socket.on("PLAYER_LIST_UPDATE", (payload) => setPlayers(payload.players));
     socket.on("ROLE_SELECTION_UPDATE", (payload) => setRoleSelectionState(payload));
     socket.on("ROOM_ERROR", (payload) => setError(payload.message));
+    socket.on("TICK_START", (payload) => {
+      setCurrentTick({ ...payload, active: false });
+      setActionResult(null);
+      setNightPaused(false);
+      setNightEnded(false);
+    });
+    socket.on("TICK_PAYLOAD", (payload) => {
+      setCurrentTick((prev) => (prev && prev.tickId === payload.tickId ? { ...prev, active: payload.active } : prev));
+    });
+    socket.on("TICK_PAUSED", () => setNightPaused(true));
+    socket.on("TICK_RESUMED", () => setNightPaused(false));
+    socket.on("NIGHT_END", () => {
+      setNightEnded(true);
+      setCurrentTick(null);
+    });
+    socket.on("ACTION_RESULT", (payload) => setActionResult(payload));
 
     return () => {
       socket.close();
@@ -110,6 +143,10 @@ export function useRoomSocket(): RoomSession {
     socketRef.current?.emit("START_GAME");
   }, []);
 
+  const submitNightAction = useCallback((tickId: NightTickId, params: Record<string, unknown>) => {
+    socketRef.current?.emit("SUBMIT_NIGHT_ACTION", { tickId, params });
+  }, []);
+
   return {
     roomCode,
     playerId,
@@ -122,5 +159,10 @@ export function useRoomSocket(): RoomSession {
     setRoleMode,
     setCustomRoles,
     startGame,
+    currentTick,
+    nightPaused,
+    nightEnded,
+    actionResult,
+    submitNightAction,
   };
 }

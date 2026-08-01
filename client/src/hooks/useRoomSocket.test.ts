@@ -138,4 +138,53 @@ describe("useRoomSocket", () => {
     });
     expect(mockSocket.emit).toHaveBeenCalledWith("START_GAME");
   });
+
+  it("tracks the current tick across TICK_START then TICK_PAYLOAD", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      mockSocket.trigger("TICK_START", { tickIndex: 2, tickId: "seer", durationMs: 8000 });
+    });
+    expect(result.current.currentTick).toEqual({ tickIndex: 2, tickId: "seer", durationMs: 8000, active: false });
+
+    act(() => {
+      mockSocket.trigger("TICK_PAYLOAD", { tickId: "seer", active: true });
+    });
+    expect(result.current.currentTick?.active).toBe(true);
+  });
+
+  it("tracks pause/resume and clears on NIGHT_END", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      mockSocket.trigger("TICK_START", { tickIndex: 0, tickId: "doppelganger", durationMs: 8000 });
+      mockSocket.trigger("TICK_PAUSED", {});
+    });
+    expect(result.current.nightPaused).toBe(true);
+
+    act(() => {
+      mockSocket.trigger("TICK_RESUMED", { remainingMs: 3000 });
+    });
+    expect(result.current.nightPaused).toBe(false);
+
+    act(() => {
+      mockSocket.trigger("NIGHT_END", {});
+    });
+    expect(result.current.nightEnded).toBe(true);
+    expect(result.current.currentTick).toBeNull();
+  });
+
+  it("submitNightAction emits SUBMIT_NIGHT_ACTION and ACTION_RESULT updates actionResult", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      result.current.submitNightAction("robber", { targetPlayerId: "p2" });
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith("SUBMIT_NIGHT_ACTION", { tickId: "robber", params: { targetPlayerId: "p2" } });
+
+    act(() => {
+      mockSocket.trigger("ACTION_RESULT", { tickId: "robber", result: { newRoleId: "villager" } });
+    });
+    expect(result.current.actionResult).toEqual({ tickId: "robber", result: { newRoleId: "villager" } });
+  });
 });
