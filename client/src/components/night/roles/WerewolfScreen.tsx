@@ -9,7 +9,6 @@ type WerewolfResult = { teammateIds: string[] } | { centerRoleId: RoleId };
 function WerewolfScreen({ players, result, onSubmit, onContinue }: RoleScreenProps<WerewolfResult>) {
   useEffect(() => {
     onSubmit({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!result) return <p>Les Loups-Garous se regardent…</p>;

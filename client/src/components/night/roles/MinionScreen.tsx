@@ -5,7 +5,6 @@ import type { RoleScreenProps } from "../roleScreenTypes";
 function MinionScreen({ players, result, onSubmit, onContinue }: RoleScreenProps<{ werewolfIds: string[] }>) {
   useEffect(() => {
     onSubmit({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!result) return <p>Le Sbire découvre les Loups…</p>;

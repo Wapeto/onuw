@@ -11,6 +11,7 @@ function renderAt(path: string) {
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/room/:roomCode/roles" element={<RoleSelect />} />
+        <Route path="/room/:roomCode/night" element={<div>night-page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -173,5 +174,15 @@ describe("RoleSelect", () => {
     renderAt("/room/ABCDE/roles");
     fireEvent.click(screen.getByRole("button", { name: /lancer/i }));
     expect(session.startGame).toHaveBeenCalled();
+  });
+
+  it("navigates to the night page once currentTick is set", () => {
+    vi.mocked(useRoomSocket).mockReturnValue(
+      baseSession({
+        currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
+      }) as ReturnType<typeof useRoomSocket>,
+    );
+    renderAt("/room/ABCDE/roles");
+    expect(screen.getByText("night-page")).toBeInTheDocument();
   });
 });

@@ -7,7 +7,6 @@ import type { RoleId } from "@onuw/shared";
 function InsomniacScreen({ result, onSubmit, onContinue }: RoleScreenProps<{ roleId: RoleId }>) {
   useEffect(() => {
     onSubmit({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!result) return <p>L'Insomniaque regarde sa carte…</p>;

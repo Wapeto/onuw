@@ -5,7 +5,6 @@ import type { RoleScreenProps } from "../roleScreenTypes";
 function MasonScreen({ players, result, onSubmit, onContinue }: RoleScreenProps<{ masonIds: string[] }>) {
   useEffect(() => {
     onSubmit({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!result) return <p>Les Francs-Maçons se reconnaissent…</p>;
