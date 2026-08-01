@@ -4,10 +4,11 @@ import type { Server, Socket } from "socket.io";
 import type { ClientToServerEvents, GameState, ServerToClientEvents } from "@onuw/shared";
 import { validateRoleSelection } from "@onuw/shared";
 import { generateRoomCode } from "./roomCode.js";
-import { createRoom, withRoom, RoomNotFoundError } from "./roomStore.js";
+import { createRoom, withRoom, RoomNotFoundError, getRoom } from "./roomStore.js";
 import { toPublicPlayers } from "./roomView.js";
 import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
 import { registerNightActionEvents } from "../night/nightActionEvents.js";
+import { createDisconnectHandler } from "./disconnectHandler.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -67,7 +68,12 @@ async function setConnected(
   }
 }
 
-export function registerRoomEvents(io: AppServer, socket: AppSocket, tickRunner: RoleSelectTickRunner): void {
+export function registerRoomEvents(
+  io: AppServer,
+  socket: AppSocket,
+  tickRunner: RoleSelectTickRunner,
+  disconnectHandler: ReturnType<typeof createDisconnectHandler>,
+): void {
   let membership: Membership | null = null;
 
   const authResult = handshakeAuthSchema.safeParse(socket.handshake.auth);
@@ -93,6 +99,7 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket, tickRunner:
             valid,
           });
         }
+        await disconnectHandler.handleReconnect(roomCode, playerId);
       } catch {
         socket.emit("ROOM_ERROR", { message: "failed to reconnect to room" });
       }
@@ -207,7 +214,8 @@ export function registerRoomEvents(io: AppServer, socket: AppSocket, tickRunner:
         // `connected` to false right after a newer connection already flipped it true.
         const remaining = await io.in(playerId).fetchSockets();
         if (remaining.length > 0) return;
-        const state = await setConnected(roomCode, playerId, false);
+        await disconnectHandler.handleDisconnect(roomCode, playerId);
+        const state = await getRoom(roomCode);
         if (state) await broadcastRoster(io, state);
       } catch {
         socket.emit("ROOM_ERROR", { message: "failed to update connection status" });

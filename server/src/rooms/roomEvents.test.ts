@@ -1,8 +1,37 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from "vitest";
 import { io as ioClient, type Socket } from "socket.io-client";
 import { createApp, listen } from "../index.js";
 import { getRedisClient, closeRedisClient } from "../redis/client.js";
-import { getRoom, saveRoom } from "./roomStore.js";
+import { getRoom, saveRoom, createRoom } from "./roomStore.js";
+import { registerRoomEvents } from "./roomEvents.js";
+import { createDisconnectHandler } from "./disconnectHandler.js";
+
+// Minimal fake `io`: only the two surfaces registerRoomEvents actually touches
+// on the disconnect/reconnect path — `io.in(playerId).fetchSockets()` (checked
+// to avoid flipping `connected` while another live socket for the player
+// remains) and `io.to(roomCode).emit(...)` (broadcastRoster).
+function fakeIoWithNoOtherSockets() {
+  return {
+    in: () => ({ fetchSockets: async () => [] }),
+    to: () => ({ emit: vi.fn() }),
+  };
+}
+
+// Minimal fake socket carrying handshake auth for an already-known player, so
+// registerRoomEvents' top-of-function reconnect-auth path attaches `membership`
+// without going through a real socket.io-client connection. Mirrors the
+// on/emit/trigger fake socket convention already used in
+// night/nightActionEvents.test.ts.
+function fakeSocketJoinedAs(playerId: string, roomCode: string, reconnectToken: string) {
+  const handlers = new Map<string, (payload?: unknown) => void>();
+  return {
+    handshake: { auth: { roomCode, playerId, reconnectToken } },
+    join: () => {},
+    emit: vi.fn(),
+    on: (event: string, cb: (payload?: unknown) => void) => handlers.set(event, cb),
+    trigger: (event: string, payload?: unknown) => handlers.get(event)?.(payload),
+  };
+}
 
 describe("room events", () => {
   let app: ReturnType<typeof createApp>;
@@ -223,5 +252,46 @@ describe("room events", () => {
     expect(joined).toBe(false);
     const state = await getRoom(created.roomCode);
     expect(state?.players.find((p) => p.id === created.playerId)?.connected).toBe(true);
+  });
+
+  it("pauses the tick on disconnect during NIGHT and resumes it on reconnect", async () => {
+    await createRoom({
+      roomCode: "NGHT1",
+      phase: "NIGHT",
+      players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "tok1" }],
+      center: [],
+      night: {
+        tickIndex: 0,
+        tickStartedAt: Date.now(),
+        durationMs: 5000,
+        paused: false,
+        remainingMsAtPause: null,
+        doppelgangerCopiedRoleId: null,
+        doppelgangerCopiedPlayerId: null,
+      },
+      roleSelection: null,
+      createdAt: 0,
+      updatedAt: 0,
+    });
+
+    const pauseTick = vi.fn();
+    const resumeTick = vi.fn();
+    const disconnectHandler = createDisconnectHandler({
+      tickRunner: { pauseTick, resumeTick },
+      scheduleGraceTimeout: vi.fn(),
+    });
+    const io = fakeIoWithNoOtherSockets();
+    const socket = fakeSocketJoinedAs("p1", "NGHT1", "tok1");
+
+    registerRoomEvents(io as never, socket as never, { startNight: vi.fn() }, disconnectHandler);
+
+    // The handshake-auth reconnect path runs asynchronously (real Redis round
+    // trip) before `membership` is attached; wait for its ROOM_JOINED emit
+    // before triggering disconnect, otherwise the disconnect handler no-ops.
+    await vi.waitFor(() => expect(socket.emit).toHaveBeenCalledWith("ROOM_JOINED", expect.anything()));
+
+    socket.trigger("disconnect");
+
+    await vi.waitFor(() => expect(pauseTick).toHaveBeenCalledWith("NGHT1"));
   });
 });

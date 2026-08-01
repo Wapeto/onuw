@@ -7,6 +7,7 @@ import type {
 } from "@onuw/shared";
 import { attachRedisAdapter } from "./redis/socketAdapter.js";
 import { registerRoomEvents } from "./rooms/roomEvents.js";
+import { createDisconnectHandler } from "./rooms/disconnectHandler.js";
 import { createTickRunner } from "./night/tickRunner.js";
 
 export function createApp() {
@@ -30,9 +31,11 @@ export function createApp() {
     },
   });
 
+  const disconnectHandler = createDisconnectHandler({ tickRunner });
+
   io.on("connection", (socket) => {
     socket.emit("connected", { socketId: socket.id });
-    registerRoomEvents(io, socket, tickRunner);
+    registerRoomEvents(io, socket, tickRunner, disconnectHandler);
   });
 
   return { httpServer, io, subClient };
