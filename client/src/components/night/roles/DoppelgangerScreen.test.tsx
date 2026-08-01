@@ -9,6 +9,8 @@ const players: PublicPlayer[] = [
   { id: "p2", pseudo: "Bob", isHost: false, connected: true },
 ];
 
+const threePlayers: PublicPlayer[] = [...players, { id: "p3", pseudo: "Carol", isHost: false, connected: true }];
+
 it("submits a target pick with no subParams", async () => {
   const onSubmit = vi.fn();
   render(<DoppelgangerScreen playerId="p1" players={players} result={null} onSubmit={onSubmit} onContinue={vi.fn()} />);
@@ -30,9 +32,16 @@ it("for a passive copied role, reveals immediately with no sub-action", () => {
   expect(screen.getByText(/Villageois/)).toBeInTheDocument();
 });
 
-it("for a chain-eligible copied role, offers the sub-action UI, then submits phase-2 subParams", async () => {
+it("for a chain-eligible copied role, offers the sub-action UI after a real phase-1 pick, then submits phase-2 subParams", async () => {
   const onSubmit = vi.fn();
-  render(
+  const { rerender } = render(
+    <DoppelgangerScreen playerId="p1" players={players} result={null} onSubmit={onSubmit} onContinue={vi.fn()} />,
+  );
+
+  await userEvent.click(screen.getByRole("button", { name: "Bob" }));
+  expect(onSubmit).toHaveBeenCalledWith({ targetPlayerId: "p2" });
+
+  rerender(
     <DoppelgangerScreen
       playerId="p1"
       players={players}
@@ -48,15 +57,55 @@ it("for a chain-eligible copied role, offers the sub-action UI, then submits pha
   expect(onSubmit).toHaveBeenCalledWith({ targetPlayerId: "p2", subParams: { targetPlayerId: "p2" } });
 });
 
-it("shows the chained reveal once it arrives", () => {
-  render(
+it("shows the chained reveal once it arrives, after a real phase-1 pick", async () => {
+  const onSubmit = vi.fn();
+  const { rerender } = render(
+    <DoppelgangerScreen playerId="p1" players={players} result={null} onSubmit={onSubmit} onContinue={vi.fn()} />,
+  );
+
+  await userEvent.click(screen.getByRole("button", { name: "Bob" }));
+
+  rerender(
     <DoppelgangerScreen
       playerId="p1"
       players={players}
       result={{ copiedRoleId: "robber", chained: { newRoleId: "villager" } }}
-      onSubmit={vi.fn()}
+      onSubmit={onSubmit}
       onContinue={vi.fn()}
     />,
   );
   expect(screen.getByText(/Villageois/)).toBeInTheDocument();
+});
+
+it("chains into MinionScreen for a copied Minion role: auto-submits phase-2 subParams, then reveals werewolf names", async () => {
+  const onSubmit = vi.fn();
+  const { rerender } = render(
+    <DoppelgangerScreen playerId="p1" players={threePlayers} result={null} onSubmit={onSubmit} onContinue={vi.fn()} />,
+  );
+
+  await userEvent.click(screen.getByRole("button", { name: "Bob" }));
+  onSubmit.mockClear();
+
+  rerender(
+    <DoppelgangerScreen
+      playerId="p1"
+      players={threePlayers}
+      result={{ copiedRoleId: "minion" }}
+      onSubmit={onSubmit}
+      onContinue={vi.fn()}
+    />,
+  );
+
+  expect(onSubmit).toHaveBeenCalledWith({ targetPlayerId: "p2", subParams: {} });
+
+  rerender(
+    <DoppelgangerScreen
+      playerId="p1"
+      players={threePlayers}
+      result={{ copiedRoleId: "minion", chained: { werewolfIds: ["p3"] } }}
+      onSubmit={onSubmit}
+      onContinue={vi.fn()}
+    />,
+  );
+  expect(screen.getByText(/Carol/)).toBeInTheDocument();
 });

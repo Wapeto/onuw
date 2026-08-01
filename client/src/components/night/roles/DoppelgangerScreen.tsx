@@ -7,23 +7,20 @@ import SeerScreen from "./SeerScreen";
 import RobberScreen from "./RobberScreen";
 import TroublemakerScreen from "./TroublemakerScreen";
 import DrunkScreen from "./DrunkScreen";
+import MinionScreen from "./MinionScreen";
 
 type DoppelgangerResult = { copiedRoleId: RoleId; chained?: unknown };
 
 const CHAIN_SCREENS: Partial<Record<RoleId, (props: RoleScreenProps<never>) => ReactElement>> = {
+  minion: MinionScreen as never,
   seer: SeerScreen as never,
   robber: RobberScreen as never,
   troublemaker: TroublemakerScreen as never,
   drunk: DrunkScreen as never,
 };
 
-function findCopiedTargetId(players: RoleScreenProps<unknown>["players"], playerId: string): string | null {
-  return players.find((p) => p.id !== playerId)?.id ?? null;
-}
-
 function DoppelgangerScreen({ playerId, players, result, onSubmit, onContinue }: RoleScreenProps<DoppelgangerResult>) {
-  const [pickedTargetPlayerId, setPickedTargetPlayerId] = useState<string | null>(null);
-  const targetPlayerId = pickedTargetPlayerId ?? findCopiedTargetId(players, playerId);
+  const [targetPlayerId, setTargetPlayerId] = useState<string | null>(null);
 
   if (!result) {
     return (
@@ -35,7 +32,7 @@ function DoppelgangerScreen({ playerId, players, result, onSubmit, onContinue }:
             <button
               key={p.id}
               onClick={() => {
-                setPickedTargetPlayerId(p.id);
+                setTargetPlayerId(p.id);
                 onSubmit({ targetPlayerId: p.id });
               }}
             >
