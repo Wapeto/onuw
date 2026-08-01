@@ -52,9 +52,13 @@ export function registerNightActionEvents(
         const player = room.players.find((p) => p.id === membership.playerId);
         if (!player || !tick.activeFor(player, room)) throw new NotActiveError();
 
-        const resolvedCount = room.night.resolvedActions?.[membership.playerId] ?? 0;
-        const maxAllowed = payload.tickId === "doppelganger" ? 2 : 1;
-        if (resolvedCount >= maxAllowed) throw new AlreadyActedError();
+        const playerRecord = room.night.resolvedActions?.[membership.playerId] ?? {};
+        const isDoppelganger = payload.tickId === "doppelganger";
+        const isPhase2 =
+          isDoppelganger &&
+          (parsedParams.data as { subParams?: Record<string, unknown> }).subParams !== undefined;
+        const phaseKey = isPhase2 ? "phase2" : "phase1";
+        if (playerRecord[phaseKey]) throw new AlreadyActedError();
 
         if (payload.tickId === "doppelganger") {
           const doppelgangerParams = parsedParams.data as {
@@ -84,7 +88,7 @@ export function registerNightActionEvents(
             ...outcome.gameState.night,
             resolvedActions: {
               ...(outcome.gameState.night.resolvedActions ?? room.night.resolvedActions ?? {}),
-              [membership.playerId]: resolvedCount + 1,
+              [membership.playerId]: { ...playerRecord, [phaseKey]: true },
             },
           },
         };

@@ -240,7 +240,103 @@ describe("registerNightActionEvents duplicate-submission guard", () => {
     expect(socket.emit).not.toHaveBeenCalledWith("ACTION_RESULT", expect.anything());
 
     const room = await getRoom("DG2");
-    expect(room?.night?.resolvedActions?.p1 ?? 0).toBe(0);
+    expect(room?.night?.resolvedActions?.p1?.phase2 ?? false).toBe(false);
     expect(room?.center).toEqual(["tanner", "hunter", "seer"]);
+  });
+
+  it("rejects a second phase-2 doppelganger-copies-robber submit without re-running the chained swap", async () => {
+    await createRoom(doppelgangerFixture("DGR2", "robber"));
+    const socket = fakeSocket();
+    registerNightActionEvents({} as never, socket as never, () => ({ roomCode: "DGR2", playerId: "p1" }), DG_ORDER);
+
+    await socket.trigger("SUBMIT_NIGHT_ACTION", { tickId: "doppelganger", params: { targetPlayerId: "p2" } });
+
+    socket.emit.mockClear();
+    await socket.trigger("SUBMIT_NIGHT_ACTION", {
+      tickId: "doppelganger",
+      params: { targetPlayerId: "p2", subParams: { targetPlayerId: "p2" } },
+    });
+    expect(socket.emit).toHaveBeenCalledWith("ACTION_RESULT", {
+      tickId: "doppelganger",
+      result: { copiedRoleId: "robber", chained: { newRoleId: "robber" } },
+    });
+
+    const afterFirstPhase2 = await getRoom("DGR2");
+    expect(afterFirstPhase2?.players.find((p) => p.id === "p1")?.currentRoleId).toBe("robber");
+    expect(afterFirstPhase2?.players.find((p) => p.id === "p2")?.currentRoleId).toBe("doppelganger");
+
+    socket.emit.mockClear();
+    await socket.trigger("SUBMIT_NIGHT_ACTION", {
+      tickId: "doppelganger",
+      params: { targetPlayerId: "p2", subParams: { targetPlayerId: "p2" } },
+    });
+    expect(socket.emit).toHaveBeenCalledWith("ROOM_ERROR", { message: "tu as déjà agi ce tour" });
+    expect(socket.emit).not.toHaveBeenCalledWith("ACTION_RESULT", expect.anything());
+
+    const afterSecondPhase2 = await getRoom("DGR2");
+    expect(afterSecondPhase2?.players.find((p) => p.id === "p1")?.currentRoleId).toBe("robber");
+    expect(afterSecondPhase2?.players.find((p) => p.id === "p2")?.currentRoleId).toBe("doppelganger");
+  });
+
+  it("rejects a second phase-2 doppelganger-copies-drunk submit without re-running the chained swap", async () => {
+    await createRoom(doppelgangerFixture("DGD2", "drunk"));
+    const socket = fakeSocket();
+    registerNightActionEvents({} as never, socket as never, () => ({ roomCode: "DGD2", playerId: "p1" }), DG_ORDER);
+
+    await socket.trigger("SUBMIT_NIGHT_ACTION", { tickId: "doppelganger", params: { targetPlayerId: "p2" } });
+
+    socket.emit.mockClear();
+    await socket.trigger("SUBMIT_NIGHT_ACTION", {
+      tickId: "doppelganger",
+      params: { targetPlayerId: "p2", subParams: { centerIndex: 0 } },
+    });
+    expect(socket.emit).toHaveBeenCalledWith("ACTION_RESULT", {
+      tickId: "doppelganger",
+      result: { copiedRoleId: "drunk", chained: {} },
+    });
+
+    const afterFirstPhase2 = await getRoom("DGD2");
+    expect(afterFirstPhase2?.players.find((p) => p.id === "p1")?.currentRoleId).toBe("tanner");
+    expect(afterFirstPhase2?.center).toEqual(["doppelganger", "hunter", "seer"]);
+
+    socket.emit.mockClear();
+    await socket.trigger("SUBMIT_NIGHT_ACTION", {
+      tickId: "doppelganger",
+      params: { targetPlayerId: "p2", subParams: { centerIndex: 0 } },
+    });
+    expect(socket.emit).toHaveBeenCalledWith("ROOM_ERROR", { message: "tu as déjà agi ce tour" });
+    expect(socket.emit).not.toHaveBeenCalledWith("ACTION_RESULT", expect.anything());
+
+    const afterSecondPhase2 = await getRoom("DGD2");
+    expect(afterSecondPhase2?.players.find((p) => p.id === "p1")?.currentRoleId).toBe("tanner");
+    expect(afterSecondPhase2?.center).toEqual(["doppelganger", "hunter", "seer"]);
+  });
+
+  it("allows a legitimate phase-2 after a double-tapped phase-1 (no false lockout)", async () => {
+    await createRoom(doppelgangerFixture("DGP1", "robber"));
+    const socket = fakeSocket();
+    registerNightActionEvents({} as never, socket as never, () => ({ roomCode: "DGP1", playerId: "p1" }), DG_ORDER);
+
+    await socket.trigger("SUBMIT_NIGHT_ACTION", { tickId: "doppelganger", params: { targetPlayerId: "p2" } });
+    expect(socket.emit).toHaveBeenCalledWith("ACTION_RESULT", { tickId: "doppelganger", result: { copiedRoleId: "robber" } });
+
+    socket.emit.mockClear();
+    await socket.trigger("SUBMIT_NIGHT_ACTION", { tickId: "doppelganger", params: { targetPlayerId: "p2" } });
+    expect(socket.emit).toHaveBeenCalledWith("ROOM_ERROR", { message: "tu as déjà agi ce tour" });
+    expect(socket.emit).not.toHaveBeenCalledWith("ACTION_RESULT", expect.anything());
+
+    socket.emit.mockClear();
+    await socket.trigger("SUBMIT_NIGHT_ACTION", {
+      tickId: "doppelganger",
+      params: { targetPlayerId: "p2", subParams: { targetPlayerId: "p2" } },
+    });
+    expect(socket.emit).toHaveBeenCalledWith("ACTION_RESULT", {
+      tickId: "doppelganger",
+      result: { copiedRoleId: "robber", chained: { newRoleId: "robber" } },
+    });
+
+    const room = await getRoom("DGP1");
+    expect(room?.players.find((p) => p.id === "p1")?.currentRoleId).toBe("robber");
+    expect(room?.players.find((p) => p.id === "p2")?.currentRoleId).toBe("doppelganger");
   });
 });
