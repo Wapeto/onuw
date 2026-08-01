@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type { GameMode, RoleId } from "@onuw/shared";
 import { ROLE_IDS, totalRoleCount } from "@onuw/shared";
 import { useRoomSocket } from "../hooks/useRoomSocket";
@@ -15,13 +15,18 @@ const EDITABLE_ROLE_IDS = ROLE_IDS.filter((id) => id !== "villager");
 
 function RoleSelect() {
   const { roomCode: routeRoomCode } = useParams<{ roomCode: string }>();
-  const { playerId, players, roleSelection, setRoleMode, setCustomRoles, startGame } = useRoomSocket();
+  const navigate = useNavigate();
+  const { playerId, players, roleSelection, currentTick, setRoleMode, setCustomRoles, startGame } = useRoomSocket();
 
   const me = players.find((p) => p.id === playerId);
   const isHost = me?.isHost ?? false;
 
   if (!roleSelection) {
     return <p>Chargement de la configuration…</p>;
+  }
+
+  if (currentTick && routeRoomCode) {
+    navigate(`/room/${routeRoomCode}/night`);
   }
 
   const { mode, roles, valid } = roleSelection;
