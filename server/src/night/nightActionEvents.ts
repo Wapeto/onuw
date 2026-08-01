@@ -29,6 +29,10 @@ export function registerNightActionEvents(
   socket.on("SUBMIT_NIGHT_ACTION", async (payload: { tickId: NightTickId; params: Record<string, unknown> }) => {
     const membership = getMembership();
     if (!membership) return;
+    if (!Object.hasOwn(actionParamsSchemas, payload.tickId)) {
+      socket.emit("ROOM_ERROR", { message: "action de nuit invalide" });
+      return;
+    }
     const schema = actionParamsSchemas[payload.tickId];
     const parsedParams = schema.safeParse(payload.params);
     if (!parsedParams.success) {

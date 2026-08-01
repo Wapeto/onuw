@@ -91,4 +91,21 @@ describe("registerNightActionEvents", () => {
     expect(room?.players.find((p) => p.id === "p2")?.currentRoleId).toBe("werewolf");
     expect(socket.emit).toHaveBeenCalledWith("ROOM_ERROR", { message: expect.any(String) });
   });
+
+  it("rejects an unknown/missing tickId instead of throwing on an undefined schema lookup", async () => {
+    await createRoom(fixture("MNOP", 0));
+    const socket = fakeSocket();
+    registerNightActionEvents({} as never, socket as never, () => ({ roomCode: "MNOP", playerId: "p1" }), TEST_ORDER);
+
+    // If the handler let an unknown tickId reach `actionParamsSchemas[tickId].safeParse(...)`,
+    // the lookup would be undefined and `.safeParse` would throw a TypeError outside the
+    // try/catch — surfacing here as a rejected promise that fails this `await`, not a silent
+    // process crash. Resolving cleanly with a ROOM_ERROR emit is the proof the guard works.
+    await socket.trigger("SUBMIT_NIGHT_ACTION", { tickId: "not-a-real-tick", params: {} });
+    expect(socket.emit).toHaveBeenCalledWith("ROOM_ERROR", { message: expect.any(String) });
+
+    socket.emit.mockClear();
+    await socket.trigger("SUBMIT_NIGHT_ACTION", { params: {} });
+    expect(socket.emit).toHaveBeenCalledWith("ROOM_ERROR", { message: expect.any(String) });
+  });
 });
