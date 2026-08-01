@@ -17,9 +17,10 @@ export function createApp() {
   );
   const subClient = attachRedisAdapter(io);
 
-  // TICK_START/TICK_PAYLOAD/NIGHT_END aren't in ServerToClientEvents yet (Phase 4
-  // adds that typed contract, per the Phase 1 final-review prerequisite) — the
-  // TickRunner's own deps intentionally stay string-typed until then.
+  // TICK_START/TICK_PAYLOAD/TICK_PAUSED/TICK_RESUMED/NIGHT_END are now typed on
+  // ServerToClientEvents (Phase 4). TickRunnerDeps itself stays string-typed by
+  // design — it's an event-name-agnostic runner — so the `unknown`-cast emit
+  // wrappers below are unchanged.
   const tickRunner = createTickRunner({
     broadcast: (roomCode, event, payload) => {
       (io.to(roomCode) as unknown as { emit(event: string, payload: unknown): void }).emit(event, payload);

@@ -7,7 +7,7 @@ import type {
   ServerToClientEvents,
   ClientToServerEvents,
 } from "./types";
-import { ROLE_IDS, isValidRoleId } from "./types";
+import { ROLE_IDS, isValidRoleId, NIGHT_TICK_IDS } from "./types";
 
 describe("isValidRoleId", () => {
   it("pins the total number of roles", () => {
@@ -145,5 +145,43 @@ describe("role-select event contracts", () => {
 
     expect(typeof clientEvents.START_GAME).toBe("function");
     expect(typeof serverEvents.ROLE_SELECTION_UPDATE).toBe("function");
+  });
+});
+
+describe("night event contracts", () => {
+  it("NIGHT_TICK_IDS lists all 10 ticks including the 9a Doppelganger/Insomniac wake-step", () => {
+    expect(NIGHT_TICK_IDS).toHaveLength(10);
+    expect(NIGHT_TICK_IDS).toContain("doppelgangerInsomniac");
+  });
+
+  it("wires TICK_START/TICK_PAYLOAD/TICK_PAUSED/TICK_RESUMED/NIGHT_END/ACTION_RESULT and SUBMIT_NIGHT_ACTION", () => {
+    const serverEvents: ServerToClientEvents = {
+      connected: () => {},
+      ROOM_CREATED: () => {},
+      ROOM_JOINED: () => {},
+      PLAYER_LIST_UPDATE: () => {},
+      ROOM_ERROR: () => {},
+      ROLE_SELECTION_UPDATE: () => {},
+      TICK_START: () => {},
+      TICK_PAYLOAD: () => {},
+      TICK_PAUSED: () => {},
+      TICK_RESUMED: () => {},
+      NIGHT_END: () => {},
+      ACTION_RESULT: () => {},
+    };
+    const clientEvents: ClientToServerEvents = {
+      ping: () => {},
+      CREATE_ROOM: () => {},
+      JOIN_ROOM: () => {},
+      START_ROLE_SELECT: () => {},
+      SET_ROLE_MODE: () => {},
+      SET_CUSTOM_ROLES: () => {},
+      START_GAME: () => {},
+      SUBMIT_NIGHT_ACTION: () => {},
+    };
+
+    serverEvents.TICK_START({ tickIndex: 1, tickId: "werewolf", durationMs: 7000 });
+    clientEvents.SUBMIT_NIGHT_ACTION({ tickId: "seer", params: { mode: "center" } });
+    expect(typeof serverEvents.ACTION_RESULT).toBe("function");
   });
 });

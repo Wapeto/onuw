@@ -20,6 +20,21 @@ export function isValidRoleId(value: string): value is RoleId {
   return (ROLE_IDS as readonly string[]).includes(value);
 }
 
+export const NIGHT_TICK_IDS = [
+  "doppelganger",
+  "werewolf",
+  "minion",
+  "mason",
+  "seer",
+  "robber",
+  "troublemaker",
+  "drunk",
+  "insomniac",
+  "doppelgangerInsomniac",
+] as const;
+
+export type NightTickId = (typeof NIGHT_TICK_IDS)[number];
+
 export type RoomPhase =
   | "LOBBY"
   | "ROLE_SELECT"
@@ -82,6 +97,12 @@ export interface ServerToClientEvents {
   PLAYER_LIST_UPDATE: (payload: { players: PublicPlayer[] }) => void;
   ROOM_ERROR: (payload: { message: string }) => void;
   ROLE_SELECTION_UPDATE: (payload: { mode: GameMode; roles: RoleCounts; valid: boolean }) => void;
+  TICK_START: (payload: { tickIndex: number; tickId: NightTickId; durationMs: number }) => void;
+  TICK_PAYLOAD: (payload: { tickId: NightTickId; active: boolean }) => void;
+  TICK_PAUSED: (payload: Record<string, never>) => void;
+  TICK_RESUMED: (payload: { remainingMs: number }) => void;
+  NIGHT_END: (payload: Record<string, never>) => void;
+  ACTION_RESULT: (payload: { tickId: NightTickId; result: unknown }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -92,4 +113,5 @@ export interface ClientToServerEvents {
   SET_ROLE_MODE: (payload: { mode: GameMode }) => void;
   SET_CUSTOM_ROLES: (payload: { roles: RoleCounts }) => void;
   START_GAME: () => void;
+  SUBMIT_NIGHT_ACTION: (payload: { tickId: NightTickId; params: Record<string, unknown> }) => void;
 }

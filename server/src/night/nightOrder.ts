@@ -1,16 +1,6 @@
-import type { GameState, Player, RoleId } from "@onuw/shared";
+import type { GameState, NightTickId, Player, RoleId } from "@onuw/shared";
 
-export type NightTickId =
-  | "doppelganger"
-  | "werewolf"
-  | "minion"
-  | "mason"
-  | "seer"
-  | "robber"
-  | "troublemaker"
-  | "drunk"
-  | "insomniac"
-  | "doppelgangerInsomniac";
+export type { NightTickId } from "@onuw/shared";
 
 export interface NightTick {
   tickId: NightTickId;
