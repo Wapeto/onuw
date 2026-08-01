@@ -151,6 +151,13 @@ export const doppelgangerResolver: ActionResolver<
     return { gameState: finalState, result: { copiedRoleId, chained: chainResult.result } };
   }
 
+  if (IMMEDIATE_CHAIN_ROLES.includes(copiedRoleId)) {
+    // Phase 1 of a two-call chain-eligible role: don't rename yet — robber/drunk need
+    // the card still labeled "doppelganger" when their swap runs in phase 2, and the
+    // chain branch above already renames correctly once it actually executes.
+    return { gameState: nightUpdatedState, result: { copiedRoleId } };
+  }
+
   const nextState = replacePlayer(nightUpdatedState, actingPlayerId, { currentRoleId: copiedRoleId });
   return { gameState: nextState, result: { copiedRoleId } };
 };

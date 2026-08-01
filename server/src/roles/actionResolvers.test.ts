@@ -240,6 +240,9 @@ describe("doppelgangerResolver", () => {
 
     expect(result).toEqual({ copiedRoleId: "robber" });
     expect(gameState.night?.doppelgangerCopiedRoleId).toBe("robber");
+    // Must NOT rename yet: robber/drunk's phase-2 chain needs the card still
+    // physically labeled "doppelganger" when their swap runs.
+    expect(gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("doppelganger");
   });
 
   it("phase 2 (same target, real subParams) runs the chain", () => {
@@ -255,6 +258,45 @@ describe("doppelgangerResolver", () => {
 
     expect(result.copiedRoleId).toBe("robber");
     expect(result.chained).toEqual({ newRoleId: "villager" });
+  });
+
+  it("threads phase 1's real output into phase 2 for robber: the swap target ends up holding the doppelganger's card, not a card already labeled 'robber'", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const rob = player({ id: "r1", originalRoleId: "robber", currentRoleId: "robber" });
+    const victim = player({ id: "v1", originalRoleId: "villager", currentRoleId: "villager" });
+    const state = stateWithActiveNight([dopp, rob, victim]);
+
+    const phase1 = doppelgangerResolver("d1", state, { targetPlayerId: "r1" });
+    expect(phase1.result).toEqual({ copiedRoleId: "robber" });
+
+    const phase2 = doppelgangerResolver("d1", phase1.gameState, {
+      targetPlayerId: "r1",
+      subParams: { targetPlayerId: "v1" },
+    });
+
+    expect(phase2.result).toEqual({ copiedRoleId: "robber", chained: { newRoleId: "villager" } });
+    expect(phase2.gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("villager");
+    expect(phase2.gameState.players.find((p) => p.id === "v1")?.currentRoleId).toBe("doppelganger");
+    expect(phase2.gameState.players.find((p) => p.id === "r1")?.currentRoleId).toBe("robber");
+  });
+
+  it("threads phase 1's real output into phase 2 for drunk: the center ends up holding the doppelganger's card, not a card already labeled 'drunk'", () => {
+    const dopp = player({ id: "d1", currentRoleId: "doppelganger" });
+    const drunk = player({ id: "dr1", originalRoleId: "drunk", currentRoleId: "drunk" });
+    const state = stateWithActiveNight([dopp, drunk], ["hunter", "villager", "tanner"]);
+
+    const phase1 = doppelgangerResolver("d1", state, { targetPlayerId: "dr1" });
+    expect(phase1.result).toEqual({ copiedRoleId: "drunk" });
+    expect(phase1.gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("doppelganger");
+
+    const phase2 = doppelgangerResolver("d1", phase1.gameState, {
+      targetPlayerId: "dr1",
+      subParams: { centerIndex: 1 },
+    });
+
+    expect(phase2.result).toEqual({ copiedRoleId: "drunk", chained: {} });
+    expect(phase2.gameState.players.find((p) => p.id === "d1")?.currentRoleId).toBe("villager");
+    expect(phase2.gameState.center[1]).toBe("doppelganger");
   });
 });
 
