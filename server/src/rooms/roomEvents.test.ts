@@ -293,5 +293,16 @@ describe("room events", () => {
     socket.trigger("disconnect");
 
     await vi.waitFor(() => expect(pauseTick).toHaveBeenCalledWith("NGHT1"));
+
+    // Simulate the real reconnect: a fresh socket for the same player going
+    // through the same handshake-auth path in registerRoomEvents. This is the
+    // only way `disconnectHandler.handleReconnect` gets invoked with a pending
+    // grace in play (the initial connection's handleReconnect call is a no-op,
+    // since pendingGrace is empty before any disconnect has happened) — it's
+    // what actually exercises the roomEvents.ts:102 call site added by this task.
+    const reconnectedSocket = fakeSocketJoinedAs("p1", "NGHT1", "tok1");
+    registerRoomEvents(io as never, reconnectedSocket as never, { startNight: vi.fn() }, disconnectHandler);
+
+    await vi.waitFor(() => expect(resumeTick).toHaveBeenCalledWith("NGHT1"));
   });
 });
