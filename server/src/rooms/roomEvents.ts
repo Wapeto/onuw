@@ -8,6 +8,7 @@ import { createRoom, withRoom, RoomNotFoundError, getRoom } from "./roomStore.js
 import { toPublicPlayers } from "./roomView.js";
 import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
 import { registerNightActionEvents } from "../night/nightActionEvents.js";
+import { registerDayDurationEvents, broadcastDayDuration } from "../day/dayDurationEvents.js";
 import { createDisconnectHandler } from "./disconnectHandler.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -91,6 +92,7 @@ export function registerRoomEvents(
         await socket.join(playerId);
         socket.emit("ROOM_JOINED", { roomCode, playerId, reconnectToken });
         await broadcastRoster(io, state);
+        socket.emit("DAY_DURATION_UPDATE", { durationMs: state.dayDurationMs });
         if (state.roleSelection) {
           const { valid } = validateRoleSelection(state.roleSelection.mode, state.players.length, state.roleSelection.roles);
           socket.emit("ROLE_SELECTION_UPDATE", {
@@ -228,4 +230,5 @@ export function registerRoomEvents(
 
   registerRoleSelectEvents(io, socket, () => membership, tickRunner);
   registerNightActionEvents(io, socket, () => membership);
+  registerDayDurationEvents(io, socket, () => membership);
 }
