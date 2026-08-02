@@ -191,4 +191,35 @@ describe("RoleSelect", () => {
     renderAt("/room/ABCDE/roles");
     expect(screen.getByText("night-page")).toBeInTheDocument();
   });
+
+  it("lets the host change the day duration and shows it to everyone", () => {
+    const setDayDuration = vi.fn();
+    vi.mocked(useRoomSocket).mockReturnValue(
+      baseSession({ dayDurationMs: 240_000, setDayDuration }) as ReturnType<typeof useRoomSocket>,
+    );
+    renderAt("/room/ABCDE/roles");
+
+    const input = screen.getByLabelText(/durée de la discussion/i) as HTMLInputElement;
+    expect(input.value).toBe("4");
+
+    fireEvent.change(input, { target: { value: "2" } });
+    expect(setDayDuration).toHaveBeenCalledWith(120_000);
+  });
+
+  it("hides the day duration control from non-hosts but still shows the value", () => {
+    vi.mocked(useRoomSocket).mockReturnValue(
+      baseSession({
+        dayDurationMs: 300_000,
+        players: [
+          { id: "p1", pseudo: "Alice", isHost: true, connected: true },
+          { id: "p2", pseudo: "Bob", isHost: false, connected: true },
+        ],
+        playerId: "p2",
+      }) as ReturnType<typeof useRoomSocket>,
+    );
+    renderAt("/room/ABCDE/roles");
+
+    expect(screen.queryByLabelText(/durée de la discussion/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/5 min/)).toBeInTheDocument();
+  });
 });

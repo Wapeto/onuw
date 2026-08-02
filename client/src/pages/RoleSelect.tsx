@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { GameMode, RoleId } from "@onuw/shared";
-import { ROLE_IDS, totalRoleCount } from "@onuw/shared";
+import { ROLE_IDS, totalRoleCount, MIN_DAY_DURATION_MS, MAX_DAY_DURATION_MS } from "@onuw/shared";
 import { useRoomSocket } from "../hooks/useRoomSocket";
 import RoleRecap from "../components/RoleRecap";
 import { roleLabel } from "../roleLabels";
@@ -17,7 +17,7 @@ const EDITABLE_ROLE_IDS = ROLE_IDS.filter((id) => id !== "villager");
 function RoleSelect() {
   const { roomCode: routeRoomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
-  const { playerId, players, roleSelection, currentTick, setRoleMode, setCustomRoles, startGame } = useRoomSocket();
+  const { playerId, players, roleSelection, currentTick, setRoleMode, setCustomRoles, startGame, dayDurationMs, setDayDuration } = useRoomSocket();
 
   useEffect(() => {
     if (currentTick && routeRoomCode) {
@@ -58,6 +58,22 @@ function RoleSelect() {
             </button>
           ))}
         </div>
+      )}
+
+      {isHost ? (
+        <div>
+          <label htmlFor="day-duration">Durée de la discussion (minutes)</label>
+          <input
+            id="day-duration"
+            type="number"
+            min={MIN_DAY_DURATION_MS / 60_000}
+            max={MAX_DAY_DURATION_MS / 60_000}
+            value={dayDurationMs / 60_000}
+            onChange={(e) => setDayDuration(Number(e.target.value) * 60_000)}
+          />
+        </div>
+      ) : (
+        <p>Durée de la discussion : {dayDurationMs / 60_000} min</p>
       )}
 
       {mode === "custom" && isHost && (
