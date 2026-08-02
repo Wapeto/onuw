@@ -597,10 +597,10 @@ function fixture(roomCode: string, overrides: Partial<GameState> = {}): GameStat
 }
 
 function fakeSocket() {
-  const handlers = new Map<string, (payload: unknown) => void>();
+  const handlers = new Map<string, (payload: unknown) => unknown>();
   const emitted: { event: string; payload: unknown }[] = [];
   return {
-    on: (event: string, handler: (payload: unknown) => void) => handlers.set(event, handler),
+    on: (event: string, handler: (payload: unknown) => unknown) => handlers.set(event, handler),
     emit: (event: string, payload: unknown) => emitted.push({ event, payload }),
     trigger: (event: string, payload: unknown) => handlers.get(event)!(payload),
     emitted,
@@ -626,8 +626,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "ABCD", playerId: "p1" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
 
     const room = await getRoom("ABCD");
     expect(room?.dayDurationMs).toBe(180_000);
@@ -640,8 +639,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "EFGH", playerId: "p2" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
 
     const room = await getRoom("EFGH");
     expect(room?.dayDurationMs).toBe(240_000);
@@ -654,8 +652,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "IJKL", playerId: "p1" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 999_999_999 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 999_999_999 });
 
     const room = await getRoom("IJKL");
     expect(room?.dayDurationMs).toBe(240_000);
@@ -668,8 +665,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "MNOP", playerId: "p1" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
 
     const room = await getRoom("MNOP");
     expect(room?.dayDurationMs).toBe(240_000);
@@ -725,29 +721,29 @@ export function registerDayDurationEvents(
   socket: AppSocket,
   getMembership: () => Membership | null,
 ): void {
-  socket.on("SET_DAY_DURATION", (payload) => {
-    void (async () => {
-      const membership = getMembership();
-      if (!membership) return;
-      const parsed = setDayDurationSchema.safeParse(payload);
-      if (!parsed.success) {
-        socket.emit("ROOM_ERROR", { message: "durée de jour invalide" });
-        return;
-      }
-      try {
-        const state = await withRoom(membership.roomCode, (room) => {
-          requireHost(room, membership.playerId);
-          if (room.phase !== "ROLE_SELECT") throw new WrongPhaseError();
-          return { ...room, dayDurationMs: parsed.data.durationMs, updatedAt: Date.now() };
-        });
-        broadcastDayDuration(io, state);
-      } catch (err) {
-        socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });
-      }
-    })();
+  socket.on("SET_DAY_DURATION", async (payload) => {
+    const membership = getMembership();
+    if (!membership) return;
+    const parsed = setDayDurationSchema.safeParse(payload);
+    if (!parsed.success) {
+      socket.emit("ROOM_ERROR", { message: "durée de jour invalide" });
+      return;
+    }
+    try {
+      const state = await withRoom(membership.roomCode, (room) => {
+        requireHost(room, membership.playerId);
+        if (room.phase !== "ROLE_SELECT") throw new WrongPhaseError();
+        return { ...room, dayDurationMs: parsed.data.durationMs, updatedAt: Date.now() };
+      });
+      broadcastDayDuration(io, state);
+    } catch (err) {
+      socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });
+    }
   });
 }
 ```
+
+**Note on this handler's shape:** unlike `roleSelectEvents.ts`'s `void (async () => {...})()` convention, this handler is registered directly as `async (payload) => {...}` — matching `nightActionEvents.ts`'s existing convention instead. This is deliberate: it makes `socket.on(event, handler)` return a real awaitable promise when a test calls the stored handler directly (`handlers.get(event)!(payload)` returns that promise), so the test can `await socket.trigger(...)` and observe the fully-settled state with no arbitrary `setTimeout` delay — avoiding a race against real Redis I/O. Socket.io itself doesn't await listeners either way, so this has no behavioral effect in production; it only matters for how cleanly the tests synchronize.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -930,15 +926,12 @@ function fixture(roomCode: string): GameState {
 }
 
 function fakeSocket() {
-  const handlers = new Map<string, (payload: unknown) => void>();
+  const handlers = new Map<string, (payload: unknown) => unknown>();
   const emitted: { event: string; payload: unknown }[] = [];
   return {
-    on: (event: string, handler: (payload: unknown) => void) => handlers.set(event, handler),
+    on: (event: string, handler: (payload: unknown) => unknown) => handlers.set(event, handler),
     emit: (event: string, payload: unknown) => emitted.push({ event, payload }),
-    trigger: async (event: string, payload: unknown) => {
-      handlers.get(event)!(payload);
-      await new Promise((r) => setTimeout(r, 0));
-    },
+    trigger: (event: string, payload: unknown) => handlers.get(event)!(payload),
     emitted,
   };
 }
@@ -1076,43 +1069,43 @@ export function registerVoteEvents(
   socket: AppSocket,
   getMembership: () => Membership | null,
 ): void {
-  socket.on("SUBMIT_VOTE", (payload) => {
-    void (async () => {
-      const membership = getMembership();
-      if (!membership) return;
-      const parsed = submitVoteSchema.safeParse(payload);
-      if (!parsed.success) {
-        socket.emit("ROOM_ERROR", { message: "vote invalide" });
-        return;
-      }
-      let result: VoteResult | null = null;
-      try {
-        const state = await withRoom(membership.roomCode, (room) => {
-          if (room.phase !== "VOTE" || !room.vote) throw new NotInVoteError();
-          const voterExists = room.players.some((p) => p.id === membership.playerId);
-          const targetExists = room.players.some((p) => p.id === parsed.data.targetPlayerId);
-          if (!voterExists || !targetExists) throw new InvalidTargetError();
+  socket.on("SUBMIT_VOTE", async (payload) => {
+    const membership = getMembership();
+    if (!membership) return;
+    const parsed = submitVoteSchema.safeParse(payload);
+    if (!parsed.success) {
+      socket.emit("ROOM_ERROR", { message: "vote invalide" });
+      return;
+    }
+    let result: VoteResult | null = null;
+    try {
+      const state = await withRoom(membership.roomCode, (room) => {
+        if (room.phase !== "VOTE" || !room.vote) throw new NotInVoteError();
+        const voterExists = room.players.some((p) => p.id === membership.playerId);
+        const targetExists = room.players.some((p) => p.id === parsed.data.targetPlayerId);
+        if (!voterExists || !targetExists) throw new InvalidTargetError();
 
-          const votes = { ...room.vote.votes, [membership.playerId]: parsed.data.targetPlayerId };
-          if (Object.keys(votes).length < room.players.length) {
-            return { ...room, vote: { votes }, updatedAt: Date.now() };
-          }
-          result = resolveVotes(
-            votes,
-            room.players.map((p) => p.id),
-          );
-          return { ...transition(room, "REVEAL"), vote: null, updatedAt: Date.now() };
-        });
-        if (result) {
-          io.to(state.roomCode).emit("VOTE_RESULT", result);
+        const votes = { ...room.vote.votes, [membership.playerId]: parsed.data.targetPlayerId };
+        if (Object.keys(votes).length < room.players.length) {
+          return { ...room, vote: { votes }, updatedAt: Date.now() };
         }
-      } catch (err) {
-        socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });
+        result = resolveVotes(
+          votes,
+          room.players.map((p) => p.id),
+        );
+        return { ...transition(room, "REVEAL"), vote: null, updatedAt: Date.now() };
+      });
+      if (result) {
+        io.to(state.roomCode).emit("VOTE_RESULT", result);
       }
-    })();
+    } catch (err) {
+      socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });
+    }
   });
 }
 ```
+
+**Note on this handler's shape:** registered directly as `async (payload) => {...}` (not wrapped in `void (async () => {...})()`), matching `nightActionEvents.ts`'s convention — see Task 4's identical note for why. This makes the handler's promise directly awaitable via `handlers.get(event)!(payload)` in the fake socket, so tests can `await socket.trigger(...)` deterministically instead of racing a `setTimeout` against real Redis I/O.
 
 - [ ] **Step 4: Run test to verify it passes**
 
