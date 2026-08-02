@@ -119,6 +119,40 @@ describe("tickRunner", () => {
     expect(broadcast).toHaveBeenCalledWith("IJKL", "NIGHT_END", {});
   });
 
+  it("advanceTick past the last tick calls onNightEnd with the room code", async () => {
+    await createRoom(fixture("ONEND"));
+    const onNightEnd = vi.fn();
+    const runner = createTickRunner({
+      broadcast: vi.fn(),
+      emitToPlayer: vi.fn(),
+      scheduleAdvance: vi.fn(),
+      onNightEnd,
+      nightOrder: TEST_ORDER,
+      jitterMs: 0,
+    });
+
+    await runner.startNight("ONEND");
+    await runner.advanceTick("ONEND");
+    await runner.advanceTick("ONEND");
+
+    expect(onNightEnd).toHaveBeenCalledWith("ONEND");
+  });
+
+  it("advanceTick past the last tick without onNightEnd configured still ends the night", async () => {
+    await createRoom(fixture("NOEND"));
+    const runner = createTickRunner({
+      broadcast: vi.fn(),
+      emitToPlayer: vi.fn(),
+      scheduleAdvance: vi.fn(),
+      nightOrder: TEST_ORDER,
+      jitterMs: 0,
+    });
+
+    await runner.startNight("NOEND");
+    await runner.advanceTick("NOEND");
+    await expect(runner.advanceTick("NOEND")).resolves.toBeUndefined();
+  });
+
   it("pauseTick freezes remaining time and resumeTick reschedules with it", async () => {
     await createRoom(fixture("MNOP"));
     const broadcast = vi.fn();

@@ -9,6 +9,7 @@ export interface TickRunnerDeps {
   nightOrder?: NightTick[];
   jitterMs?: number;
   scheduleAdvance?: (roomCode: string, delayMs: number, token: number) => void;
+  onNightEnd?: (roomCode: string) => Promise<void> | void;
 }
 
 function computeDuration(tick: NightTick, jitterMs: number): number {
@@ -76,6 +77,7 @@ export function createTickRunner(deps: TickRunnerDeps) {
       const updated: GameState = { ...transition(room, "DAY"), night: null };
       await saveRoom(updated);
       deps.broadcast(roomCode, "NIGHT_END", {});
+      await deps.onNightEnd?.(roomCode);
       return;
     }
 

@@ -9,6 +9,7 @@ import { attachRedisAdapter } from "./redis/socketAdapter.js";
 import { registerRoomEvents } from "./rooms/roomEvents.js";
 import { createDisconnectHandler } from "./rooms/disconnectHandler.js";
 import { createTickRunner } from "./night/tickRunner.js";
+import { createDayTimer } from "./day/dayTimer.js";
 
 export function createApp() {
   const httpServer = createServer();
@@ -22,6 +23,12 @@ export function createApp() {
   // ServerToClientEvents (Phase 4). TickRunnerDeps itself stays string-typed by
   // design — it's an event-name-agnostic runner — so the `unknown`-cast emit
   // wrappers below are unchanged.
+  const dayTimer = createDayTimer({
+    broadcast: (roomCode, event, payload) => {
+      (io.to(roomCode) as unknown as { emit(event: string, payload: unknown): void }).emit(event, payload);
+    },
+  });
+
   const tickRunner = createTickRunner({
     broadcast: (roomCode, event, payload) => {
       (io.to(roomCode) as unknown as { emit(event: string, payload: unknown): void }).emit(event, payload);
@@ -29,6 +36,7 @@ export function createApp() {
     emitToPlayer: (playerId, event, payload) => {
       (io.to(playerId) as unknown as { emit(event: string, payload: unknown): void }).emit(event, payload);
     },
+    onNightEnd: (roomCode) => dayTimer.startDay(roomCode),
   });
 
   const disconnectHandler = createDisconnectHandler({ tickRunner });
