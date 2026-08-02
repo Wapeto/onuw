@@ -8,6 +8,7 @@ import type {
   RoleCounts,
   ServerToClientEvents,
 } from "@onuw/shared";
+import { DEFAULT_DAY_DURATION_MS } from "@onuw/shared";
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -29,6 +30,15 @@ export interface RoleSelectionState {
   valid: boolean;
 }
 
+export interface DaySession {
+  durationMs: number;
+}
+
+export interface VoteResultState {
+  tally: Record<string, number>;
+  eliminated: string[];
+}
+
 export interface RoomSession {
   roomCode: string;
   playerId: string;
@@ -46,6 +56,12 @@ export interface RoomSession {
   nightEnded: boolean;
   actionResult: { tickId: NightTickId; result: unknown } | null;
   submitNightAction: (tickId: NightTickId, params: Record<string, unknown>) => void;
+  dayDurationMs: number;
+  daySession: DaySession | null;
+  voteStarted: boolean;
+  voteResult: VoteResultState | null;
+  setDayDuration: (durationMs: number) => void;
+  submitVote: (targetPlayerId: string) => void;
 }
 
 function readStoredSession(): { roomCode: string; playerId: string; reconnectToken: string } {
@@ -73,6 +89,10 @@ export function useRoomSocket(): RoomSession {
   const [nightPaused, setNightPaused] = useState(false);
   const [nightEnded, setNightEnded] = useState(false);
   const [actionResult, setActionResult] = useState<{ tickId: NightTickId; result: unknown } | null>(null);
+  const [dayDurationMs, setDayDurationMs] = useState(DEFAULT_DAY_DURATION_MS);
+  const [daySession, setDaySession] = useState<DaySession | null>(null);
+  const [voteStarted, setVoteStarted] = useState(false);
+  const [voteResult, setVoteResult] = useState<VoteResultState | null>(null);
 
   useEffect(() => {
     const stored = readStoredSession();
@@ -113,6 +133,14 @@ export function useRoomSocket(): RoomSession {
       setCurrentTick(null);
     });
     socket.on("ACTION_RESULT", (payload) => setActionResult(payload));
+    socket.on("DAY_DURATION_UPDATE", (payload) => setDayDurationMs(payload.durationMs));
+    socket.on("DAY_START", (payload) => {
+      setDaySession({ durationMs: payload.durationMs });
+      setVoteStarted(false);
+      setVoteResult(null);
+    });
+    socket.on("VOTE_START", () => setVoteStarted(true));
+    socket.on("VOTE_RESULT", (payload) => setVoteResult(payload));
 
     return () => {
       socket.close();
@@ -147,6 +175,14 @@ export function useRoomSocket(): RoomSession {
     socketRef.current?.emit("SUBMIT_NIGHT_ACTION", { tickId, params });
   }, []);
 
+  const setDayDuration = useCallback((durationMs: number) => {
+    socketRef.current?.emit("SET_DAY_DURATION", { durationMs });
+  }, []);
+
+  const submitVote = useCallback((targetPlayerId: string) => {
+    socketRef.current?.emit("SUBMIT_VOTE", { targetPlayerId });
+  }, []);
+
   return {
     roomCode,
     playerId,
@@ -164,5 +200,11 @@ export function useRoomSocket(): RoomSession {
     nightEnded,
     actionResult,
     submitNightAction,
+    dayDurationMs,
+    daySession,
+    voteStarted,
+    voteResult,
+    setDayDuration,
+    submitVote,
   };
 }

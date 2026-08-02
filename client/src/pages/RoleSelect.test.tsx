@@ -43,6 +43,12 @@ function baseSession(overrides: Record<string, unknown> = {}) {
     nightEnded: false,
     actionResult: null,
     submitNightAction: vi.fn(),
+    dayDurationMs: 240_000,
+    daySession: null,
+    voteStarted: false,
+    voteResult: null,
+    setDayDuration: vi.fn(),
+    submitVote: vi.fn(),
     ...overrides,
   };
 }

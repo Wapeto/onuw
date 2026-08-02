@@ -188,3 +188,51 @@ describe("useRoomSocket", () => {
     expect(result.current.actionResult).toEqual({ tickId: "robber", result: { newRoleId: "villager" } });
   });
 });
+
+describe("day/vote state", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    mockSocket.reset();
+    mockSocket.emit.mockClear();
+  });
+
+  it("DAY_START sets daySession and resets vote state; VOTE_START flips voteStarted; VOTE_RESULT sets voteResult", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      mockSocket.trigger("DAY_START", { durationMs: 180_000 });
+    });
+    expect(result.current.daySession).toEqual({ durationMs: 180_000 });
+    expect(result.current.voteStarted).toBe(false);
+    expect(result.current.voteResult).toBeNull();
+
+    act(() => {
+      mockSocket.trigger("VOTE_START", {});
+    });
+    expect(result.current.voteStarted).toBe(true);
+
+    act(() => {
+      mockSocket.trigger("VOTE_RESULT", { tally: { p1: 2 }, eliminated: ["p1"] });
+    });
+    expect(result.current.voteResult).toEqual({ tally: { p1: 2 }, eliminated: ["p1"] });
+  });
+
+  it("DAY_DURATION_UPDATE sets dayDurationMs; setDayDuration/submitVote emit the right events", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      mockSocket.trigger("DAY_DURATION_UPDATE", { durationMs: 300_000 });
+    });
+    expect(result.current.dayDurationMs).toBe(300_000);
+
+    act(() => {
+      result.current.setDayDuration(120_000);
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith("SET_DAY_DURATION", { durationMs: 120_000 });
+
+    act(() => {
+      result.current.submitVote("p2");
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith("SUBMIT_VOTE", { targetPlayerId: "p2" });
+  });
+});

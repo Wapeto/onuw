@@ -24,6 +24,12 @@ describe("App", () => {
       nightEnded: false,
       actionResult: null,
       submitNightAction: vi.fn(),
+      dayDurationMs: 240_000,
+      daySession: null,
+      voteStarted: false,
+      voteResult: null,
+      setDayDuration: vi.fn(),
+      submitVote: vi.fn(),
     });
     render(<App />);
     expect(screen.getByRole("heading", { name: /one night ultimate werewolf/i })).toBeInTheDocument();
@@ -47,6 +53,12 @@ describe("App", () => {
       nightEnded: false,
       actionResult: null,
       submitNightAction: vi.fn(),
+      dayDurationMs: 240_000,
+      daySession: null,
+      voteStarted: false,
+      voteResult: null,
+      setDayDuration: vi.fn(),
+      submitVote: vi.fn(),
     });
     window.history.pushState({}, "", "/room/ABCDE/roles");
     render(<App />);
