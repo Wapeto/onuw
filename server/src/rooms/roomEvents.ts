@@ -8,7 +8,7 @@ import { createRoom, withRoom, RoomNotFoundError, getRoom } from "./roomStore.js
 import { toPublicPlayers } from "./roomView.js";
 import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
 import { registerNightActionEvents } from "../night/nightActionEvents.js";
-import { registerDayDurationEvents, broadcastDayDuration } from "../day/dayDurationEvents.js";
+import { registerDayDurationEvents } from "../day/dayDurationEvents.js";
 import { registerVoteEvents } from "../day/voteEvents.js";
 import { createDisconnectHandler } from "./disconnectHandler.js";
 
