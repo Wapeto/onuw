@@ -267,7 +267,7 @@ import { createDayTimer } from "./dayTimer.js";
 function fixture(roomCode: string): GameState {
   return {
     roomCode,
-    phase: "NIGHT",
+    phase: "DAY",
     players: [
       { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "t1" },
       { id: "p2", pseudo: "Bob", isHost: false, connected: true, reconnectToken: "t2" },
@@ -339,7 +339,7 @@ describe("dayTimer", () => {
 
     await timer.endDay("STALE", staleToken);
     room = await getRoom("STALE");
-    expect(room?.phase).toBe("NIGHT");
+    expect(room?.phase).toBe("DAY");
     expect(room?.day).not.toBeNull();
   });
 });
