@@ -7,7 +7,7 @@ import { createDayTimer } from "./dayTimer.js";
 function fixture(roomCode: string): GameState {
   return {
     roomCode,
-    phase: "NIGHT",
+    phase: "DAY",
     players: [
       { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "t1" },
       { id: "p2", pseudo: "Bob", isHost: false, connected: true, reconnectToken: "t2" },
@@ -74,12 +74,13 @@ describe("dayTimer", () => {
     await timer.startDay("STALE");
     const staleToken = scheduleAdvance.mock.calls[0][2] as number;
 
+    await new Promise(resolve => setTimeout(resolve, 1));
     let room = await getRoom("STALE");
-    await saveRoom({ ...room!, day: { startedAt: Date.now(), durationMs: 200 } });
+    await saveRoom({ ...room!, day: { startedAt: Date.now(), durationMs: 200 }, updatedAt: Date.now() });
 
     await timer.endDay("STALE", staleToken);
     room = await getRoom("STALE");
-    expect(room?.phase).toBe("NIGHT");
+    expect(room?.phase).toBe("DAY");
     expect(room?.day).not.toBeNull();
   });
 });
