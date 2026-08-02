@@ -35,25 +35,23 @@ export function registerDayDurationEvents(
   socket: AppSocket,
   getMembership: () => Membership | null,
 ): void {
-  socket.on("SET_DAY_DURATION", (payload) => {
-    void (async () => {
-      const membership = getMembership();
-      if (!membership) return;
-      const parsed = setDayDurationSchema.safeParse(payload);
-      if (!parsed.success) {
-        socket.emit("ROOM_ERROR", { message: "durée de jour invalide" });
-        return;
-      }
-      try {
-        const state = await withRoom(membership.roomCode, (room) => {
-          requireHost(room, membership.playerId);
-          if (room.phase !== "ROLE_SELECT") throw new WrongPhaseError();
-          return { ...room, dayDurationMs: parsed.data.durationMs, updatedAt: Date.now() };
-        });
-        broadcastDayDuration(io, state);
-      } catch (err) {
-        socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });
-      }
-    })();
+  socket.on("SET_DAY_DURATION", async (payload) => {
+    const membership = getMembership();
+    if (!membership) return;
+    const parsed = setDayDurationSchema.safeParse(payload);
+    if (!parsed.success) {
+      socket.emit("ROOM_ERROR", { message: "durée de jour invalide" });
+      return;
+    }
+    try {
+      const state = await withRoom(membership.roomCode, (room) => {
+        requireHost(room, membership.playerId);
+        if (room.phase !== "ROLE_SELECT") throw new WrongPhaseError();
+        return { ...room, dayDurationMs: parsed.data.durationMs, updatedAt: Date.now() };
+      });
+      broadcastDayDuration(io, state);
+    } catch (err) {
+      socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });
+    }
   });
 }

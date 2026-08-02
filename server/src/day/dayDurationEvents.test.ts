@@ -25,10 +25,10 @@ function fixture(roomCode: string, overrides: Partial<GameState> = {}): GameStat
 }
 
 function fakeSocket() {
-  const handlers = new Map<string, (payload: unknown) => void>();
+  const handlers = new Map<string, (payload: unknown) => unknown>();
   const emitted: { event: string; payload: unknown }[] = [];
   return {
-    on: (event: string, handler: (payload: unknown) => void) => handlers.set(event, handler),
+    on: (event: string, handler: (payload: unknown) => unknown) => handlers.set(event, handler),
     emit: (event: string, payload: unknown) => emitted.push({ event, payload }),
     trigger: (event: string, payload: unknown) => handlers.get(event)!(payload),
     emitted,
@@ -54,8 +54,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "ABCD", playerId: "p1" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
 
     const room = await getRoom("ABCD");
     expect(room?.dayDurationMs).toBe(180_000);
@@ -68,8 +67,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "EFGH", playerId: "p2" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
 
     const room = await getRoom("EFGH");
     expect(room?.dayDurationMs).toBe(240_000);
@@ -82,8 +80,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "IJKL", playerId: "p1" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 999_999_999 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 999_999_999 });
 
     const room = await getRoom("IJKL");
     expect(room?.dayDurationMs).toBe(240_000);
@@ -96,8 +93,7 @@ describe("registerDayDurationEvents", () => {
     const socket = fakeSocket();
     registerDayDurationEvents(io as never, socket as never, () => ({ roomCode: "MNOP", playerId: "p1" }));
 
-    socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
-    await new Promise((r) => setTimeout(r, 0));
+    await socket.trigger("SET_DAY_DURATION", { durationMs: 180_000 });
 
     const room = await getRoom("MNOP");
     expect(room?.dayDurationMs).toBe(240_000);
