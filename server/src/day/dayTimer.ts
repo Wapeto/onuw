@@ -21,7 +21,7 @@ export function createDayTimer(deps: DayTimerDeps) {
     if (!room) throw new Error(`room ${roomCode} not found`);
     const startedAt = Date.now();
     const durationMs = room.dayDurationMs;
-    const updated: GameState = { ...transition(room, "DAY"), day: { startedAt, durationMs }, updatedAt: Date.now() };
+    const updated: GameState = { ...room, day: { startedAt, durationMs }, updatedAt: Date.now() };
     await saveRoom(updated);
     deps.broadcast(roomCode, "DAY_START", { durationMs });
     scheduleAdvance(roomCode, durationMs, startedAt);

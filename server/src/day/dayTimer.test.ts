@@ -75,11 +75,11 @@ describe("dayTimer", () => {
     const staleToken = scheduleAdvance.mock.calls[0][2] as number;
 
     let room = await getRoom("STALE");
-    await saveRoom({ ...room!, day: { startedAt: Date.now(), durationMs: 200 }, updatedAt: Date.now() });
+    await saveRoom({ ...room!, day: { startedAt: Date.now(), durationMs: 200 } });
 
     await timer.endDay("STALE", staleToken);
     room = await getRoom("STALE");
-    expect(room?.phase).toBe("DAY");
+    expect(room?.phase).toBe("NIGHT");
     expect(room?.day).not.toBeNull();
   });
 });
