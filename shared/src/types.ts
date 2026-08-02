@@ -45,6 +45,10 @@ export type RoomPhase =
 
 export type GameMode = "classic" | "simple" | "custom";
 
+export const DEFAULT_DAY_DURATION_MS = 4 * 60 * 1000;
+export const MIN_DAY_DURATION_MS = 60 * 1000;
+export const MAX_DAY_DURATION_MS = 10 * 60 * 1000;
+
 export type RoleCounts = Partial<Record<RoleId, number>>;
 
 export interface RoleSelection {
@@ -80,13 +84,25 @@ export interface NightState {
   resolvedActions?: Record<string, { phase1?: boolean; phase2?: boolean }>;
 }
 
+export interface DayState {
+  startedAt: number;
+  durationMs: number;
+}
+
+export interface VoteState {
+  votes: Record<string, string>;
+}
+
 export interface GameState {
   roomCode: string;
   phase: RoomPhase;
   players: Player[];
   center: RoleId[];
   night: NightState | null;
+  day: DayState | null;
+  vote: VoteState | null;
   roleSelection: RoleSelection | null;
+  dayDurationMs: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -104,6 +120,10 @@ export interface ServerToClientEvents {
   TICK_RESUMED: (payload: { remainingMs: number }) => void;
   NIGHT_END: (payload: Record<string, never>) => void;
   ACTION_RESULT: (payload: { tickId: NightTickId; result: unknown }) => void;
+  DAY_DURATION_UPDATE: (payload: { durationMs: number }) => void;
+  DAY_START: (payload: { durationMs: number }) => void;
+  VOTE_START: (payload: Record<string, never>) => void;
+  VOTE_RESULT: (payload: { tally: Record<string, number>; eliminated: string[] }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -115,4 +135,6 @@ export interface ClientToServerEvents {
   SET_CUSTOM_ROLES: (payload: { roles: RoleCounts }) => void;
   START_GAME: () => void;
   SUBMIT_NIGHT_ACTION: (payload: { tickId: NightTickId; params: Record<string, unknown> }) => void;
+  SET_DAY_DURATION: (payload: { durationMs: number }) => void;
+  SUBMIT_VOTE: (payload: { targetPlayerId: string }) => void;
 }

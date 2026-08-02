@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Server, Socket } from "socket.io";
 import type { ClientToServerEvents, GameState, ServerToClientEvents } from "@onuw/shared";
-import { validateRoleSelection } from "@onuw/shared";
+import { validateRoleSelection, DEFAULT_DAY_DURATION_MS } from "@onuw/shared";
 import { generateRoomCode } from "./roomCode.js";
 import { createRoom, withRoom, RoomNotFoundError, getRoom } from "./roomStore.js";
 import { toPublicPlayers } from "./roomView.js";
@@ -128,7 +128,10 @@ export function registerRoomEvents(
             ],
             center: [],
             night: null,
+            day: null,
+            vote: null,
             roleSelection: null,
+            dayDurationMs: DEFAULT_DAY_DURATION_MS,
             createdAt: now,
             updatedAt: now,
           };

@@ -7,7 +7,7 @@ import type {
   ServerToClientEvents,
   ClientToServerEvents,
 } from "./types";
-import { ROLE_IDS, isValidRoleId, NIGHT_TICK_IDS } from "./types";
+import { ROLE_IDS, isValidRoleId, NIGHT_TICK_IDS, DEFAULT_DAY_DURATION_MS, MIN_DAY_DURATION_MS, MAX_DAY_DURATION_MS } from "./types";
 
 describe("isValidRoleId", () => {
   it("pins the total number of roles", () => {
@@ -183,5 +183,69 @@ describe("night event contracts", () => {
     serverEvents.TICK_START({ tickIndex: 1, tickId: "werewolf", durationMs: 7000 });
     clientEvents.SUBMIT_NIGHT_ACTION({ tickId: "seer", params: { mode: "center" } });
     expect(typeof serverEvents.ACTION_RESULT).toBe("function");
+  });
+});
+
+describe("day/vote event contracts", () => {
+  it("exposes the day duration bounds and a sane default within them", () => {
+    expect(DEFAULT_DAY_DURATION_MS).toBeGreaterThanOrEqual(MIN_DAY_DURATION_MS);
+    expect(DEFAULT_DAY_DURATION_MS).toBeLessThanOrEqual(MAX_DAY_DURATION_MS);
+  });
+
+  it("GameState carries dayDurationMs, a nullable day timer, and a nullable vote map", () => {
+    const state: GameState = {
+      roomCode: "ABCD",
+      phase: "DAY",
+      players: [],
+      center: [],
+      night: null,
+      day: { startedAt: 1000, durationMs: 240_000 },
+      vote: null,
+      roleSelection: null,
+      dayDurationMs: DEFAULT_DAY_DURATION_MS,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+
+    expect(state.day?.durationMs).toBe(240_000);
+    expect(state.vote).toBeNull();
+  });
+
+  it("wires SET_DAY_DURATION/DAY_DURATION_UPDATE/DAY_START/VOTE_START/VOTE_RESULT/SUBMIT_VOTE", () => {
+    const serverEvents: ServerToClientEvents = {
+      connected: () => {},
+      ROOM_CREATED: () => {},
+      ROOM_JOINED: () => {},
+      PLAYER_LIST_UPDATE: () => {},
+      ROOM_ERROR: () => {},
+      ROLE_SELECTION_UPDATE: () => {},
+      TICK_START: () => {},
+      TICK_PAYLOAD: () => {},
+      TICK_PAUSED: () => {},
+      TICK_RESUMED: () => {},
+      NIGHT_END: () => {},
+      ACTION_RESULT: () => {},
+      DAY_DURATION_UPDATE: () => {},
+      DAY_START: () => {},
+      VOTE_START: () => {},
+      VOTE_RESULT: () => {},
+    };
+    const clientEvents: ClientToServerEvents = {
+      ping: () => {},
+      CREATE_ROOM: () => {},
+      JOIN_ROOM: () => {},
+      START_ROLE_SELECT: () => {},
+      SET_ROLE_MODE: () => {},
+      SET_CUSTOM_ROLES: () => {},
+      START_GAME: () => {},
+      SUBMIT_NIGHT_ACTION: () => {},
+      SET_DAY_DURATION: () => {},
+      SUBMIT_VOTE: () => {},
+    };
+
+    serverEvents.DAY_START({ durationMs: 240_000 });
+    serverEvents.VOTE_RESULT({ tally: { p1: 2, p2: 1 }, eliminated: ["p1"] });
+    clientEvents.SUBMIT_VOTE({ targetPlayerId: "p1" });
+    expect(typeof clientEvents.SET_DAY_DURATION).toBe("function");
   });
 });
