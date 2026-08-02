@@ -1,4 +1,6 @@
 import type { ReactElement } from "react";
+import { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import type { NightTickId } from "@onuw/shared";
 import { useRoomSocket } from "../hooks/useRoomSocket";
 import { useFullscreen } from "../hooks/useFullscreen";
@@ -28,8 +30,17 @@ const ROLE_SCREENS: Record<NightTickId, (props: RoleScreenProps<never>) => React
 };
 
 function Night() {
-  const { playerId, players, currentTick, nightPaused, nightEnded, actionResult, submitNightAction } = useRoomSocket();
+  const { roomCode: routeRoomCode } = useParams<{ roomCode: string }>();
+  const navigate = useNavigate();
+  const { playerId, players, currentTick, nightPaused, nightEnded, actionResult, submitNightAction, daySession } =
+    useRoomSocket();
   useFullscreen(!nightEnded);
+
+  useEffect(() => {
+    if (daySession && routeRoomCode) {
+      navigate(`/room/${routeRoomCode}/day`);
+    }
+  }, [daySession, routeRoomCode, navigate]);
 
   if (nightEnded) return <p>La nuit est terminée.</p>;
   if (nightPaused) return <p>La partie est en pause…</p>;

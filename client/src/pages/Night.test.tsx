@@ -12,6 +12,7 @@ function renderNight() {
     <MemoryRouter initialEntries={["/room/ABCD/night"]}>
       <Routes>
         <Route path="/room/:roomCode/night" element={<Night />} />
+        <Route path="/room/:roomCode/day" element={<div>day-page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -31,6 +32,7 @@ describe("Night", () => {
       nightEnded: false,
       actionResult: null,
       submitNightAction: vi.fn(),
+      daySession: null,
     });
 
     renderNight();
@@ -46,6 +48,7 @@ describe("Night", () => {
       nightEnded: false,
       actionResult: null,
       submitNightAction: vi.fn(),
+      daySession: null,
     });
 
     renderNight();
@@ -61,6 +64,7 @@ describe("Night", () => {
       nightEnded: false,
       actionResult: null,
       submitNightAction: vi.fn(),
+      daySession: null,
     });
 
     renderNight();
@@ -77,9 +81,26 @@ describe("Night", () => {
       nightEnded: true,
       actionResult: null,
       submitNightAction: vi.fn(),
+      daySession: null,
     });
 
     renderNight();
     expect(screen.getByText(/nuit est terminée/)).toBeInTheDocument();
+  });
+
+  it("navigates to the day page once daySession is set", () => {
+    mockUseRoomSocket.mockReturnValue({
+      playerId: "p1",
+      players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true }],
+      currentTick: null,
+      nightPaused: false,
+      nightEnded: true,
+      actionResult: null,
+      submitNightAction: vi.fn(),
+      daySession: { durationMs: 240_000 },
+    });
+
+    renderNight();
+    expect(screen.getByText("day-page")).toBeInTheDocument();
   });
 });
