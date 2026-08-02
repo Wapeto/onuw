@@ -9,6 +9,7 @@ import { toPublicPlayers } from "./roomView.js";
 import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
 import { registerNightActionEvents } from "../night/nightActionEvents.js";
 import { registerDayDurationEvents, broadcastDayDuration } from "../day/dayDurationEvents.js";
+import { registerVoteEvents } from "../day/voteEvents.js";
 import { createDisconnectHandler } from "./disconnectHandler.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -93,6 +94,14 @@ export function registerRoomEvents(
         socket.emit("ROOM_JOINED", { roomCode, playerId, reconnectToken });
         await broadcastRoster(io, state);
         socket.emit("DAY_DURATION_UPDATE", { durationMs: state.dayDurationMs });
+        if (state.phase === "DAY" && state.day) {
+          const elapsed = Date.now() - state.day.startedAt;
+          const remainingMs = Math.max(state.day.durationMs - elapsed, 0);
+          socket.emit("DAY_START", { durationMs: remainingMs });
+        }
+        if (state.phase === "VOTE") {
+          socket.emit("VOTE_START", {});
+        }
         if (state.roleSelection) {
           const { valid } = validateRoleSelection(state.roleSelection.mode, state.players.length, state.roleSelection.roles);
           socket.emit("ROLE_SELECTION_UPDATE", {
@@ -231,4 +240,5 @@ export function registerRoomEvents(
   registerRoleSelectEvents(io, socket, () => membership, tickRunner);
   registerNightActionEvents(io, socket, () => membership);
   registerDayDurationEvents(io, socket, () => membership);
+  registerVoteEvents(io, socket, () => membership);
 }
