@@ -1010,7 +1010,7 @@ git commit -m "feat: add an offline app-shell service worker, built as a stable 
 - Produces: `isOnboardingDismissed(roomCode: string): boolean`, `dismissOnboarding(roomCode: string): void` (from `onboardingStorage.ts`); `<OnboardingNotice onContinue={(dontShowAgain: boolean) => void} />` (from `OnboardingNotice.tsx`).
 - Consumes: `RoleSelect.tsx`'s existing `currentTick`/`routeRoomCode`/`navigate` (Phase 3/4, unchanged).
 
-**Context:** `RoleSelect.tsx` currently navigates straight to `/room/:roomCode/night` the instant `currentTick` appears (the night has started). This task inserts the onboarding notice as an interstitial on that same transition: shown once per room unless the player has previously ticked "don't show again" for that room code, per `onuw-web-spec.md` §5.
+**Context:** `RoleSelect.tsx` currently navigates straight to `/room/:roomCode/night` the instant `currentTick` appears (the night has started). This task inserts the onboarding notice as an interstitial on that same transition: shown once per room, then dismissed by default, per `onuw-web-spec.md` §5 — *"une seule fois, pas à chaque partie si le groupe a déjà joué"* ("shown once, not every game once the group has already played"). Since `Reveal.tsx`'s "Rejouer" button (Task 6/Phase 6, already built) keeps the same room and restarts straight back into `ROLE_SELECT` — the whole point of §5's separate "Rejouer vite" flow being zero re-scanning, zero repeated friction between rounds — the notice must not reappear on every replay round by default. The "don't show again" checkbox therefore starts **checked**: the default action (click "Continuer" without touching it) dismisses the notice for this room going forward, and unchecking it is the explicit opt-in for a group that wants the reminder repeated every round anyway.
 
 - [ ] **Step 1: Write the failing tests for the storage helper**
 
@@ -1076,19 +1076,19 @@ describe("OnboardingNotice", () => {
     expect(screen.getByText(/tête baissée/i)).toBeInTheDocument();
   });
 
-  it("calls onContinue(false) by default", () => {
+  it("calls onContinue(true) by default (checkbox starts checked)", () => {
     const onContinue = vi.fn();
     render(<OnboardingNotice onContinue={onContinue} />);
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
-    expect(onContinue).toHaveBeenCalledWith(false);
+    expect(onContinue).toHaveBeenCalledWith(true);
   });
 
-  it("calls onContinue(true) when 'don't show again' is checked", () => {
+  it("calls onContinue(false) when the 'don't show again' checkbox is unchecked", () => {
     const onContinue = vi.fn();
     render(<OnboardingNotice onContinue={onContinue} />);
     fireEvent.click(screen.getByRole("checkbox", { name: /ne plus afficher/i }));
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
-    expect(onContinue).toHaveBeenCalledWith(true);
+    expect(onContinue).toHaveBeenCalledWith(false);
   });
 });
 ```
@@ -1110,7 +1110,14 @@ export interface OnboardingNoticeProps {
 }
 
 function OnboardingNotice({ onContinue }: OnboardingNoticeProps) {
-  const [dontShowAgain, setDontShowAgain] = useState(false);
+  // Checked by default: onuw-web-spec.md §5 asks for "shown once, not every
+  // game once the group has already played" — since Reveal's "Rejouer" keeps
+  // the same room and is explicitly designed for chaining rounds with zero
+  // friction (§5 "Rejouer vite"), the default action (click Continuer
+  // without touching the checkbox) must dismiss the notice for this room,
+  // not require an opt-in click every time. Unchecking is the escape hatch
+  // for a group that wants the reminder repeated anyway.
+  const [dontShowAgain, setDontShowAgain] = useState(true);
 
   return (
     <div>
@@ -1205,7 +1212,18 @@ In `client/src/pages/RoleSelect.test.tsx`, replace the `"navigates to the night 
     expect(screen.getByText("night-page")).toBeInTheDocument();
   });
 
-  it("persists the dismissal when 'don't show again' is checked before continuing", () => {
+  it("persists the dismissal by default when continuing (checkbox starts checked)", () => {
+    vi.mocked(useRoomSocket).mockReturnValue(
+      baseSession({
+        currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
+      }) as ReturnType<typeof useRoomSocket>,
+    );
+    renderAt("/room/ABCDE/roles");
+    fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
+    expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBe("1");
+  });
+
+  it("does not persist the dismissal when 'don't show again' is unchecked before continuing", () => {
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
         currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
@@ -1214,7 +1232,7 @@ In `client/src/pages/RoleSelect.test.tsx`, replace the `"navigates to the night 
     renderAt("/room/ABCDE/roles");
     fireEvent.click(screen.getByRole("checkbox", { name: /ne plus afficher/i }));
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
-    expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBe("1");
+    expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBeNull();
   });
 ```
 
@@ -1762,3 +1780,4 @@ git commit -m "feat: wire up Vercel deployment (api/socket-io.ts, vercel.json, s
 - **Deliberately not built:** a distributed/Redis-backed timer for the disconnect grace timeout itself (Task 2) — only the *decision* of whether to resume needs to be cross-instance-safe (fixed), because the `setTimeout` that fires it lives on the same live WebSocket connection's Function instance for the grace window's 40s duration, well under Vercel's 5-minute Function duration cap that this whole architecture is already built around (`docs/superpowers/plans/2026-07-28-onuw-web-app.md:30`). Building a distributed timer here would be solving a problem the hosting model doesn't actually have.
 - **Type-consistency check across tasks:** `NightState.graceUntil`/`graceForPlayerId` (Task 2) are optional and additive, so they don't ripple into the `NightState` object literals in `server/src/night/tickRunner.ts`, `server/src/roles/actionResolvers.ts`, `server/src/night/nightOrder.test.ts`, `server/src/night/nightActionEvents.test.ts`, `server/src/rooms/roomEvents.test.ts`, or `shared/src/types.test.ts` — verified by reading each of those files before writing this plan. `resolveSocketUrl`/`resolveSocketPath` (Task 7) and `VITE_SOCKET_PATH` (Task 8's deployment doc) use the exact same env var names and the exact path string Vercel's own docs specify. `registerServiceWorker` (Task 4) registers with `{ type: "module" }`, matching that `sw.ts` (Task 4) has real named exports and is therefore built as an ES module chunk, not a classic script — missed once during planning and corrected before finalizing this document.
 - **Correction made during Task 2's review loop:** the first version of this plan specified `graceUntil` alone (room-scoped, no player scoping), which the task text already promised "6/6" tests for but only listed 5 — the missing 6th test would have been exactly the one that catches this. A task reviewer caught the gap empirically (a different, never-disconnected player's reconnect prematurely resumed another player's grace period) before it shipped. Fixed by adding `graceForPlayerId` alongside `graceUntil`, restoring the per-player scoping the original in-memory `Set` (keyed by `roomCode:playerId`) already had, plus the regression test above. Recorded here so the fix's rationale survives independent of the ledger.
+- **Correction made during Task 5's review loop:** the first version of this plan defaulted `OnboardingNotice`'s "don't show again" checkbox to unchecked, so the notice would silently reappear on every "Rejouer" round unless a player proactively opted in to suppressing it each time — a task reviewer traced the replay flow (`Reveal.tsx` → `REPLAY` → back to `RoleSelect`) and pointed out this contradicts both `onuw-web-spec.md` §5's explicit wording ("shown once, not every game once the group has already played") and its own "Rejouer vite" design goal (zero friction between rounds in the same room). Fixed by defaulting the checkbox to checked, so the default action (continue without touching it) is what satisfies the spec's stated default behavior, while unchecking remains available for a group that explicitly wants the reminder repeated. Recorded here for the same reason as the Task 2 note above.
