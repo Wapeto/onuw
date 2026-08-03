@@ -245,12 +245,12 @@ git commit -m "feat: rate limit CREATE_ROOM/JOIN_ROOM per socket"
 - Modify: `server/src/rooms/disconnectHandler.test.ts`
 
 **Interfaces:**
-- Produces: `NightState.graceUntil?: number` — an epoch-ms deadline for the currently-open disconnect grace period, persisted in Redis via the existing `GameState` document. `undefined`/absent means no grace period is open.
+- Produces: `NightState.graceUntil?: number` — an epoch-ms deadline for the currently-open disconnect grace period, persisted in Redis via the existing `GameState` document. `NightState.graceForPlayerId?: string` — the id of the player whose disconnect opened that grace period. Both `undefined`/absent together means no grace period is open; they are always set and cleared together.
 - Consumes: `getRoom`/`saveRoom` from `./roomStore.js` (existing, Phase 1).
 
-**Context:** Today, `createDisconnectHandler` tracks "is a grace period pending for this player" in a local `Set<string>`. On Vercel, a disconnect handled by one Function instance and the matching reconnect handled by a different instance (the normal case — see `docs/superpowers/plans/2026-07-28-onuw-web-app.md:187`) never share that `Set`, so the immediate-resume-on-reconnect path silently misses and the room stays paused for the full 40s grace window every time. The fix moves the "is there an open grace period" fact into `NightState` in Redis (as the master plan's own prerequisite note suggests), so any instance can make the correct decision.
+**Context:** Today, `createDisconnectHandler` tracks "is a grace period pending for this player" in a local `Set<string>` keyed by `roomCode:playerId` — so it's already scoped to the specific player who disconnected. On Vercel, a disconnect handled by one Function instance and the matching reconnect handled by a different instance (the normal case — see `docs/superpowers/plans/2026-07-28-onuw-web-app.md:187`) never share that `Set`, so the immediate-resume-on-reconnect path silently misses and the room stays paused for the full 40s grace window every time. The fix moves the "is there an open grace period, and for which player" fact into `NightState` in Redis (as the master plan's own prerequisite note suggests), so any instance can make the correct decision — **and it must preserve the existing per-player scoping**: a reconnect from a player who was never disconnected must never resume a grace period that another player's disconnect opened. (An earlier draft of this fix stored only a room-level `graceUntil` with no player scoping, which would let *any* player's reconnect prematurely resume the tick while a different player is still gone — that bug is why `graceForPlayerId` exists below; do not drop it.)
 
-- [ ] **Step 1: Add the optional field to `NightState`**
+- [ ] **Step 1: Add the optional fields to `NightState`**
 
 In `shared/src/types.ts`, extend the interface (it currently ends at `resolvedActions?: ...`):
 
@@ -265,6 +265,7 @@ export interface NightState {
   doppelgangerCopiedPlayerId: string | null;
   resolvedActions?: Record<string, { phase1?: boolean; phase2?: boolean }>;
   graceUntil?: number;
+  graceForPlayerId?: string;
 }
 ```
 
@@ -338,7 +339,7 @@ describe("disconnectHandler", () => {
     expect(pauseTick).not.toHaveBeenCalled();
   });
 
-  it("pauses the tick and records a grace deadline on disconnect during NIGHT", async () => {
+  it("pauses the tick and records a grace deadline for the disconnecting player during NIGHT", async () => {
     await createRoom(fixture("EFGH", "NIGHT"));
     const pauseTick = vi.fn();
     const resumeTick = vi.fn();
@@ -353,6 +354,28 @@ describe("disconnectHandler", () => {
     const room = await getRoom("EFGH");
     expect(room?.players.find((p) => p.id === "p1")?.connected).toBe(false);
     expect(room?.night?.graceUntil).toBeTypeOf("number");
+    expect(room?.night?.graceForPlayerId).toBe("p1");
+  });
+
+  it("does not resume the tick when a different player reconnects during another player's grace period", async () => {
+    await createRoom(fixture("UVWX", "NIGHT"));
+    const pauseTick = vi.fn();
+    const resumeTick = vi.fn();
+    const handler = createDisconnectHandler({
+      tickRunner: { pauseTick, resumeTick },
+      scheduleGraceTimeout: vi.fn(),
+    });
+
+    // p1 disconnects and opens a grace period; p2 was never disconnected but
+    // its socket reconnects anyway (a normal event — phone lock/unlock, a
+    // tab refresh, a brief network blip). That must NOT resume p1's tick.
+    await handler.handleDisconnect("UVWX", "p1");
+    await handler.handleReconnect("UVWX", "p2");
+
+    expect(resumeTick).not.toHaveBeenCalled();
+    const room = await getRoom("UVWX");
+    expect(room?.night?.graceUntil).toBeTypeOf("number");
+    expect(room?.night?.graceForPlayerId).toBe("p1");
   });
 
   it("resumes the tick and clears the grace deadline if the player reconnects before it expires", async () => {
@@ -368,6 +391,7 @@ describe("disconnectHandler", () => {
     expect(resumeTick).toHaveBeenCalledWith("IJKL");
     const room = await getRoom("IJKL");
     expect(room?.night?.graceUntil).toBeUndefined();
+    expect(room?.night?.graceForPlayerId).toBeUndefined();
 
     // the grace timeout callback must be a no-op if later invoked, since reconnection already cleared it
     const graceCallback = scheduleGraceTimeout.mock.calls[0][0] as () => Promise<void>;
@@ -390,6 +414,7 @@ describe("disconnectHandler", () => {
     expect(resumeTick).toHaveBeenCalledWith("MNOP");
     const room = await getRoom("MNOP");
     expect(room?.night?.graceUntil).toBeUndefined();
+    expect(room?.night?.graceForPlayerId).toBeUndefined();
   });
 
   it("resumes on reconnect even when handled by a different handler instance (cross-instance)", async () => {
@@ -397,7 +422,7 @@ describe("disconnectHandler", () => {
     // Two independent createDisconnectHandler() instances share no in-memory
     // state, simulating a disconnect and its matching reconnect landing on two
     // different Vercel Function instances. The only thing that can make
-    // handleReconnect resume correctly here is the graceUntil deadline
+    // handleReconnect resume correctly here is the graceUntil/graceForPlayerId
     // persisted in Redis by the other instance.
     const instanceA = createDisconnectHandler({
       tickRunner: { pauseTick: vi.fn(), resumeTick: vi.fn() },
@@ -417,7 +442,7 @@ describe("disconnectHandler", () => {
 - [ ] **Step 4: Run the tests to verify they fail**
 
 Run: `npm run test -w server -- disconnectHandler`
-Expected: FAIL — `graceUntil` is never set on the Redis-backed room (current code only tracks the local `Set`), so the cross-instance test and the `graceUntil` assertions fail.
+Expected: FAIL — `graceUntil`/`graceForPlayerId` are never set on the Redis-backed room (current code only tracks the local `Set`), so the cross-instance test and the `graceUntil`/`graceForPlayerId` assertions fail.
 
 - [ ] **Step 5: Rewrite the implementation**
 
@@ -454,16 +479,23 @@ export function createDisconnectHandler(deps: DisconnectHandlerDeps) {
     });
   }
 
-  // graceUntil is the cross-instance-safe source of truth for "is a grace
-  // period currently open for this room's night". It lives in Redis (via
-  // NightState) rather than in a process-local Set, so a reconnect handled
-  // by a different Vercel Function instance than the one that saw the
-  // disconnect still resumes immediately instead of waiting out the full
-  // grace window.
-  async function setGraceUntil(roomCode: string, graceUntil: number | undefined): Promise<void> {
+  // graceUntil/graceForPlayerId are the cross-instance-safe source of truth
+  // for "is a grace period currently open for this room's night, and for
+  // which player". They live in Redis (via NightState) rather than in a
+  // process-local Set, so a reconnect handled by a different Vercel Function
+  // instance than the one that saw the disconnect still resumes immediately
+  // instead of waiting out the full grace window. graceForPlayerId preserves
+  // the per-player scoping the old Set (keyed by roomCode:playerId) already
+  // had: a reconnect from a player who was never disconnected must never
+  // resume a grace period that a DIFFERENT player's disconnect opened.
+  async function setGrace(roomCode: string, grace: { playerId: string; until: number } | undefined): Promise<void> {
     const room = await getRoom(roomCode);
     if (!room || !room.night) return;
-    await saveRoom({ ...room, night: { ...room.night, graceUntil }, updatedAt: Date.now() });
+    await saveRoom({
+      ...room,
+      night: { ...room.night, graceUntil: grace?.until, graceForPlayerId: grace?.playerId },
+      updatedAt: Date.now(),
+    });
   }
 
   async function handleDisconnect(roomCode: string, playerId: string): Promise<void> {
@@ -475,14 +507,15 @@ export function createDisconnectHandler(deps: DisconnectHandlerDeps) {
 
     await deps.tickRunner.pauseTick(roomCode);
     const graceUntil = Date.now() + graceMs;
-    await setGraceUntil(roomCode, graceUntil);
+    await setGrace(roomCode, { playerId, until: graceUntil });
 
     schedule(async () => {
       const current = await getRoom(roomCode);
       // Superseded by a reconnect (cleared) or a newer disconnect (a
-      // different deadline) in the meantime: this stale timeout is a no-op.
-      if (current?.night?.graceUntil !== graceUntil) return;
-      await setGraceUntil(roomCode, undefined);
+      // different deadline and/or a different player) in the meantime:
+      // this stale timeout is a no-op.
+      if (current?.night?.graceUntil !== graceUntil || current.night.graceForPlayerId !== playerId) return;
+      await setGrace(roomCode, undefined);
       await deps.tickRunner.resumeTick(roomCode);
     }, graceMs);
   }
@@ -490,8 +523,12 @@ export function createDisconnectHandler(deps: DisconnectHandlerDeps) {
   async function handleReconnect(roomCode: string, playerId: string): Promise<void> {
     await setConnected(roomCode, playerId, true);
     const room = await getRoom(roomCode);
-    if (room?.night?.graceUntil == null) return;
-    await setGraceUntil(roomCode, undefined);
+    // Only resume if THIS player is the one whose disconnect opened the
+    // currently-open grace period — a different player's socket reconnecting
+    // (a normal event: phone lock/unlock, tab refresh, brief network blip)
+    // must never prematurely resume another player's grace window.
+    if (room?.night?.graceUntil == null || room.night.graceForPlayerId !== playerId) return;
+    await setGrace(roomCode, undefined);
     await deps.tickRunner.resumeTick(roomCode);
   }
 
@@ -1695,4 +1732,5 @@ git commit -m "feat: wire up Vercel deployment (api/socket-io.ts, vercel.json, s
 - **Spec coverage:** manifest + icon (Task 3), offline app-shell service worker (Task 4), "tête baissée" onboarding notice with a per-room "don't show again" toggle (Task 5), fullscreen/orientation final pass (Task 6), and the full Vercel deployment (`api/socket-io.ts`, Redis/Upstash provisioning documented, WebSockets beta flag documented, `vercel.json`, auto-deploy-on-push which is Vercel's default and needs no extra config) — all of Phase 7's master-plan deliverable line are covered. The two carried-over "prérequis" blocking public deployment (no rate limiting on `CREATE_ROOM`/`JOIN_ROOM`; the process-local disconnect-grace `Set`) are fixed in Tasks 1–2, ahead of the deployment task, as the master plan requires ("bloquant avant tout déploiement public" / "avant tout déploiement multi-instance").
 - **Deliberately not built:** a maskable/multi-size PNG icon set — the single `sizes: "any"` SVG icon in Task 3 already satisfies Chrome's installability criteria (one icon ≥192px, one ≥512px — `"any"` covers both), and generating pixel-art assets isn't something this plan should fabricate. If real brand art shows up later, swapping `app-icon.svg` and adding more `icons` entries to `manifest.json` is a small, isolated follow-up, not a Phase 7 blocker.
 - **Deliberately not built:** a distributed/Redis-backed timer for the disconnect grace timeout itself (Task 2) — only the *decision* of whether to resume needs to be cross-instance-safe (fixed), because the `setTimeout` that fires it lives on the same live WebSocket connection's Function instance for the grace window's 40s duration, well under Vercel's 5-minute Function duration cap that this whole architecture is already built around (`docs/superpowers/plans/2026-07-28-onuw-web-app.md:30`). Building a distributed timer here would be solving a problem the hosting model doesn't actually have.
-- **Type-consistency check across tasks:** `NightState.graceUntil` (Task 2) is optional and additive, so it doesn't ripple into the `NightState` object literals in `server/src/night/tickRunner.ts`, `server/src/roles/actionResolvers.ts`, `server/src/night/nightOrder.test.ts`, `server/src/night/nightActionEvents.test.ts`, `server/src/rooms/roomEvents.test.ts`, or `shared/src/types.test.ts` — verified by reading each of those files before writing this plan. `resolveSocketUrl`/`resolveSocketPath` (Task 7) and `VITE_SOCKET_PATH` (Task 8's deployment doc) use the exact same env var names and the exact path string Vercel's own docs specify. `registerServiceWorker` (Task 4) registers with `{ type: "module" }`, matching that `sw.ts` (Task 4) has real named exports and is therefore built as an ES module chunk, not a classic script — missed once during planning and corrected before finalizing this document.
+- **Type-consistency check across tasks:** `NightState.graceUntil`/`graceForPlayerId` (Task 2) are optional and additive, so they don't ripple into the `NightState` object literals in `server/src/night/tickRunner.ts`, `server/src/roles/actionResolvers.ts`, `server/src/night/nightOrder.test.ts`, `server/src/night/nightActionEvents.test.ts`, `server/src/rooms/roomEvents.test.ts`, or `shared/src/types.test.ts` — verified by reading each of those files before writing this plan. `resolveSocketUrl`/`resolveSocketPath` (Task 7) and `VITE_SOCKET_PATH` (Task 8's deployment doc) use the exact same env var names and the exact path string Vercel's own docs specify. `registerServiceWorker` (Task 4) registers with `{ type: "module" }`, matching that `sw.ts` (Task 4) has real named exports and is therefore built as an ES module chunk, not a classic script — missed once during planning and corrected before finalizing this document.
+- **Correction made during Task 2's review loop:** the first version of this plan specified `graceUntil` alone (room-scoped, no player scoping), which the task text already promised "6/6" tests for but only listed 5 — the missing 6th test would have been exactly the one that catches this. A task reviewer caught the gap empirically (a different, never-disconnected player's reconnect prematurely resumed another player's grace period) before it shipped. Fixed by adding `graceForPlayerId` alongside `graceUntil`, restoring the per-player scoping the original in-memory `Set` (keyed by `roomCode:playerId`) already had, plus the regression test above. Recorded here so the fix's rationale survives independent of the ledger.
