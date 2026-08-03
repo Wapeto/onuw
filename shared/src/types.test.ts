@@ -6,7 +6,6 @@ import type {
   PublicPlayer,
   ServerToClientEvents,
   ClientToServerEvents,
-  RevealPayload,
 } from "./types";
 import { ROLE_IDS, isValidRoleId, NIGHT_TICK_IDS, DEFAULT_DAY_DURATION_MS, MIN_DAY_DURATION_MS, MAX_DAY_DURATION_MS } from "./types";
 
