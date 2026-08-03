@@ -30,6 +30,8 @@ function baseSession() {
     voteResult: null,
     setDayDuration: vi.fn(),
     submitVote: vi.fn(),
+    revealResult: null,
+    replay: vi.fn(),
   };
 }
 

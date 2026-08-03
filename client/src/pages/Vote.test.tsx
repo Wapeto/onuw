@@ -34,6 +34,8 @@ function baseSession(overrides: Record<string, unknown> = {}) {
     voteResult: null,
     setDayDuration: vi.fn(),
     submitVote: vi.fn(),
+    revealResult: null,
+    replay: vi.fn(),
     ...overrides,
   };
 }
