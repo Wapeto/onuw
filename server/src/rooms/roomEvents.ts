@@ -12,6 +12,7 @@ import { registerDayDurationEvents } from "../day/dayDurationEvents.js";
 import { registerVoteEvents } from "../day/voteEvents.js";
 import { registerReplayEvents } from "./replayEvents.js";
 import { createDisconnectHandler } from "./disconnectHandler.js";
+import { createRateLimiter } from "./rateLimiter.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -79,6 +80,11 @@ export function registerRoomEvents(
 ): void {
   let membership: Membership | null = null;
 
+  // One bucket per connected socket, covering both mutating room-creation
+  // events, so a spamming client can't flood Redis with ghost rooms or
+  // hammer the withRoom CAS loop on JOIN_ROOM (Phase 2/7 final-review note).
+  const mutationLimiter = createRateLimiter({ capacity: 5, refillMs: 3000 });
+
   const authResult = handshakeAuthSchema.safeParse(socket.handshake.auth);
   const auth = authResult.success ? authResult.data : {};
   if (auth.roomCode && auth.playerId && auth.reconnectToken) {
@@ -122,6 +128,10 @@ export function registerRoomEvents(
   }
 
   socket.on("CREATE_ROOM", (payload) => {
+    if (!mutationLimiter.tryConsume()) {
+      socket.emit("ROOM_ERROR", { message: "too many requests, slow down" });
+      return;
+    }
     void (async () => {
       try {
         const parsed = createRoomPayloadSchema.safeParse(payload);
@@ -173,6 +183,10 @@ export function registerRoomEvents(
   });
 
   socket.on("JOIN_ROOM", (payload) => {
+    if (!mutationLimiter.tryConsume()) {
+      socket.emit("ROOM_ERROR", { message: "too many requests, slow down" });
+      return;
+    }
     void (async () => {
       try {
         const parsed = joinRoomPayloadSchema.safeParse(payload);

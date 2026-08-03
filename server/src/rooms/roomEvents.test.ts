@@ -84,6 +84,25 @@ describe("room events", () => {
     expect(err.message).toMatch(/pseudo/);
   });
 
+  it("rejects CREATE_ROOM after the per-socket burst limit is exceeded", async () => {
+    const host = await connect();
+    let lastError: { message: string } | undefined;
+    let created = 0;
+
+    for (let i = 0; i < 12; i++) {
+      const result = await new Promise<{ type: "created" } | { type: "error"; message: string }>((resolve) => {
+        host.once("ROOM_CREATED", () => resolve({ type: "created" }));
+        host.once("ROOM_ERROR", (payload) => resolve({ type: "error", message: payload.message }));
+        host.emit("CREATE_ROOM", { pseudo: `Player${i}` });
+      });
+      if (result.type === "created") created++;
+      else lastError = { message: result.message };
+    }
+
+    expect(created).toBeLessThan(12);
+    expect(lastError?.message).toMatch(/too many|slow down/i);
+  });
+
   it("broadcasts an updated roster when a second player joins", async () => {
     const host = await connect();
     const created = await new Promise<{ roomCode: string; playerId: string }>((resolve) => {
