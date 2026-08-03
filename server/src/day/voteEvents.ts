@@ -4,6 +4,8 @@ import type { ClientToServerEvents, ServerToClientEvents } from "@onuw/shared";
 import { withRoom } from "../rooms/roomStore.js";
 import { transition } from "../state/phases.js";
 import { resolveVotes, type VoteResult } from "../state/voteResolver.js";
+import { computeWinConditions } from "../state/winConditions.js";
+import { toRevealPlayers } from "../rooms/roomView.js";
 import type { Membership } from "../rooms/roleSelectEvents.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -49,10 +51,14 @@ export function registerVoteEvents(
           votes,
           room.players.map((p) => p.id),
         );
-        return { ...transition(room, "REVEAL"), vote: null, updatedAt: Date.now() };
+        const reveal = computeWinConditions(room.players, votes, result.eliminated);
+        return { ...transition(room, "REVEAL"), vote: null, reveal, updatedAt: Date.now() };
       });
       if (result) {
         io.to(state.roomCode).emit("VOTE_RESULT", result);
+        if (state.reveal) {
+          io.to(state.roomCode).emit("REVEAL_RESULT", { ...state.reveal, players: toRevealPlayers(state) });
+        }
       }
     } catch (err) {
       socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });

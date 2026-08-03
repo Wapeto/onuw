@@ -9,15 +9,17 @@ function fixture(roomCode: string): GameState {
     roomCode,
     phase: "VOTE",
     players: [
-      { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "t1" },
-      { id: "p2", pseudo: "Bob", isHost: false, connected: true, reconnectToken: "t2" },
-      { id: "p3", pseudo: "Carl", isHost: false, connected: true, reconnectToken: "t3" },
+      { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "t1", originalRoleId: "werewolf", currentRoleId: "werewolf" },
+      { id: "p2", pseudo: "Bob", isHost: false, connected: true, reconnectToken: "t2", originalRoleId: "villager", currentRoleId: "villager" },
+      { id: "p3", pseudo: "Carl", isHost: false, connected: true, reconnectToken: "t3", originalRoleId: "seer", currentRoleId: "seer" },
     ],
     center: [],
     night: null,
     day: null,
     vote: { votes: {} },
+    reveal: null,
     roleSelection: null,
+    lastRoleSelection: null,
     dayDurationMs: 240_000,
     createdAt: 0,
     updatedAt: 0,
@@ -91,6 +93,37 @@ describe("registerVoteEvents", () => {
     expect(room?.vote).toBeNull();
     const resultEvent = io.emitted.find((e) => e.event === "VOTE_RESULT");
     expect(resultEvent?.payload).toEqual({ tally: { p1: 1, p2: 2, p3: 0 }, eliminated: ["p2"] });
+  });
+
+  it("computes and persists the win conditions, and broadcasts REVEAL_RESULT alongside VOTE_RESULT", async () => {
+    await createRoom(fixture("MNOP"));
+    const io = fakeIo();
+    const s1 = fakeSocket();
+    const s2 = fakeSocket();
+    const s3 = fakeSocket();
+    registerVoteEvents(io as never, s1 as never, () => ({ roomCode: "MNOP", playerId: "p1" }));
+    registerVoteEvents(io as never, s2 as never, () => ({ roomCode: "MNOP", playerId: "p2" }));
+    registerVoteEvents(io as never, s3 as never, () => ({ roomCode: "MNOP", playerId: "p3" }));
+
+    // Everyone votes p1 (the werewolf) out — Village should win.
+    await s1.trigger("SUBMIT_VOTE", { targetPlayerId: "p1" });
+    await s2.trigger("SUBMIT_VOTE", { targetPlayerId: "p1" });
+    await s3.trigger("SUBMIT_VOTE", { targetPlayerId: "p1" });
+
+    const room = await getRoom("MNOP");
+    expect(room?.reveal).toEqual({ eliminated: ["p1"], winningTeam: "village", winners: ["p2", "p3"] });
+
+    const revealEvent = io.emitted.find((e) => e.event === "REVEAL_RESULT");
+    expect(revealEvent?.payload).toEqual({
+      eliminated: ["p1"],
+      winningTeam: "village",
+      winners: ["p2", "p3"],
+      players: [
+        { id: "p1", pseudo: "Alice", originalRoleId: "werewolf", currentRoleId: "werewolf" },
+        { id: "p2", pseudo: "Bob", originalRoleId: "villager", currentRoleId: "villager" },
+        { id: "p3", pseudo: "Carl", originalRoleId: "seer", currentRoleId: "seer" },
+      ],
+    });
   });
 
   it("a re-submitted vote overwrites the voter's previous choice without counting twice", async () => {
