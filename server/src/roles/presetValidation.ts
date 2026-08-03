@@ -33,5 +33,12 @@ export function assignRoles(gameState: GameState, random: () => number = Math.ra
     currentRoleId: dealtToPlayers[index],
   }));
 
-  return { ...gameState, players, center: dealtToCenter, roleSelection: null, updatedAt: Date.now() };
+  return {
+    ...gameState,
+    players,
+    center: dealtToCenter,
+    roleSelection: null,
+    lastRoleSelection: gameState.roleSelection,
+    updatedAt: Date.now(),
+  };
 }

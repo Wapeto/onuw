@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { GameState } from "@onuw/shared";
+import { DEFAULT_DAY_DURATION_MS } from "@onuw/shared";
 import { isRoleSelectionValid, assignRoles } from "./presetValidation.js";
 
 function baseState(overrides: Partial<GameState> = {}): GameState {
@@ -16,6 +17,11 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     roleSelection: null,
     createdAt: 0,
     updatedAt: 0,
+    day: null,
+    vote: null,
+    reveal: null,
+    lastRoleSelection: null,
+    dayDurationMs: DEFAULT_DAY_DURATION_MS,
     ...overrides,
   };
 }
@@ -74,5 +80,18 @@ describe("assignRoles", () => {
     const result = assignRoles(state, () => 0.5);
     expect(result.center).toHaveLength(3);
     expect(result.players.every((p) => p.currentRoleId !== undefined)).toBe(true);
+  });
+
+  it("stashes the role selection used for this game as lastRoleSelection, for a future Replayer", () => {
+    const roleSelection = {
+      mode: "classic" as const,
+      roles: { werewolf: 2, seer: 1, robber: 1, troublemaker: 1, villager: 1 },
+    };
+    const state = baseState({ roleSelection });
+
+    const result = assignRoles(state, () => 0);
+
+    expect(result.roleSelection).toBeNull();
+    expect(result.lastRoleSelection).toEqual(roleSelection);
   });
 });
