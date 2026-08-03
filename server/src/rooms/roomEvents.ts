@@ -5,7 +5,7 @@ import type { ClientToServerEvents, GameState, ServerToClientEvents } from "@onu
 import { validateRoleSelection, DEFAULT_DAY_DURATION_MS } from "@onuw/shared";
 import { generateRoomCode } from "./roomCode.js";
 import { createRoom, withRoom, RoomNotFoundError, getRoom } from "./roomStore.js";
-import { toPublicPlayers } from "./roomView.js";
+import { toPublicPlayers, toRevealPlayers } from "./roomView.js";
 import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
 import { registerNightActionEvents } from "../night/nightActionEvents.js";
 import { registerDayDurationEvents } from "../day/dayDurationEvents.js";
@@ -101,6 +101,9 @@ export function registerRoomEvents(
         }
         if (state.phase === "VOTE") {
           socket.emit("VOTE_START", {});
+        }
+        if (state.phase === "REVEAL" && state.reveal) {
+          socket.emit("REVEAL_RESULT", { ...state.reveal, players: toRevealPlayers(state) });
         }
         if (state.roleSelection) {
           const { valid } = validateRoleSelection(state.roleSelection.mode, state.players.length, state.roleSelection.roles);

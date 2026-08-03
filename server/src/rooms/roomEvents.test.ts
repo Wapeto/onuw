@@ -305,4 +305,45 @@ describe("room events", () => {
 
     await vi.waitFor(() => expect(resumeTick).toHaveBeenCalledWith("NGHT1"));
   });
+
+  it("re-sends REVEAL_RESULT on reconnect when the room is already in REVEAL", async () => {
+    await createRoom({
+      roomCode: "RVL01",
+      phase: "REVEAL",
+      players: [
+        { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "tok1", originalRoleId: "werewolf", currentRoleId: "werewolf" },
+        { id: "p2", pseudo: "Bob", isHost: false, connected: true, reconnectToken: "tok2", originalRoleId: "villager", currentRoleId: "villager" },
+      ],
+      center: [],
+      night: null,
+      day: null,
+      vote: null,
+      reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2"] },
+      roleSelection: null,
+      lastRoleSelection: null,
+      dayDurationMs: 240_000,
+      createdAt: 0,
+      updatedAt: 0,
+    });
+
+    const disconnectHandler = createDisconnectHandler({
+      tickRunner: { pauseTick: vi.fn(), resumeTick: vi.fn() },
+    });
+    const io = fakeIoWithNoOtherSockets();
+    const socket = fakeSocketJoinedAs("p1", "RVL01", "tok1");
+
+    registerRoomEvents(io as never, socket as never, { startNight: vi.fn() }, disconnectHandler);
+
+    await vi.waitFor(() => expect(socket.emit).toHaveBeenCalledWith("ROOM_JOINED", expect.anything()));
+
+    expect(socket.emit).toHaveBeenCalledWith("REVEAL_RESULT", {
+      eliminated: ["p1"],
+      winningTeam: "village",
+      winners: ["p2"],
+      players: [
+        { id: "p1", pseudo: "Alice", originalRoleId: "werewolf", currentRoleId: "werewolf" },
+        { id: "p2", pseudo: "Bob", originalRoleId: "villager", currentRoleId: "villager" },
+      ],
+    });
+  });
 });
