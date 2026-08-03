@@ -235,4 +235,30 @@ describe("day/vote state", () => {
     });
     expect(mockSocket.emit).toHaveBeenCalledWith("SUBMIT_VOTE", { targetPlayerId: "p2" });
   });
+
+  it("stores the reveal result on REVEAL_RESULT", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      mockSocket.trigger("REVEAL_RESULT", {
+        eliminated: ["p1"],
+        winningTeam: "village",
+        winners: ["p2"],
+        players: [{ id: "p1", pseudo: "Alice", originalRoleId: "werewolf", currentRoleId: "werewolf" }],
+      });
+    });
+
+    expect(result.current.revealResult?.winningTeam).toBe("village");
+    expect(result.current.revealResult?.players[0].pseudo).toBe("Alice");
+  });
+
+  it("emits REPLAY when replay() is called", () => {
+    const { result } = renderHook(() => useRoomSocket());
+
+    act(() => {
+      result.current.replay();
+    });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith("REPLAY");
+  });
 });

@@ -5,6 +5,7 @@ import type {
   GameMode,
   NightTickId,
   PublicPlayer,
+  RevealPlayer,
   RoleCounts,
   ServerToClientEvents,
 } from "@onuw/shared";
@@ -39,6 +40,13 @@ export interface VoteResultState {
   eliminated: string[];
 }
 
+export interface RevealResultState {
+  eliminated: string[];
+  winningTeam: "village" | "werewolf" | "tanner";
+  winners: string[];
+  players: RevealPlayer[];
+}
+
 export interface RoomSession {
   roomCode: string;
   playerId: string;
@@ -62,6 +70,8 @@ export interface RoomSession {
   voteResult: VoteResultState | null;
   setDayDuration: (durationMs: number) => void;
   submitVote: (targetPlayerId: string) => void;
+  revealResult: RevealResultState | null;
+  replay: () => void;
 }
 
 function readStoredSession(): { roomCode: string; playerId: string; reconnectToken: string } {
@@ -93,6 +103,7 @@ export function useRoomSocket(): RoomSession {
   const [daySession, setDaySession] = useState<DaySession | null>(null);
   const [voteStarted, setVoteStarted] = useState(false);
   const [voteResult, setVoteResult] = useState<VoteResultState | null>(null);
+  const [revealResult, setRevealResult] = useState<RevealResultState | null>(null);
 
   useEffect(() => {
     const stored = readStoredSession();
@@ -141,6 +152,7 @@ export function useRoomSocket(): RoomSession {
     });
     socket.on("VOTE_START", () => setVoteStarted(true));
     socket.on("VOTE_RESULT", (payload) => setVoteResult(payload));
+    socket.on("REVEAL_RESULT", (payload) => setRevealResult(payload));
 
     return () => {
       socket.close();
@@ -183,6 +195,10 @@ export function useRoomSocket(): RoomSession {
     socketRef.current?.emit("SUBMIT_VOTE", { targetPlayerId });
   }, []);
 
+  const replay = useCallback(() => {
+    socketRef.current?.emit("REPLAY");
+  }, []);
+
   return {
     roomCode,
     playerId,
@@ -206,5 +222,7 @@ export function useRoomSocket(): RoomSession {
     voteResult,
     setDayDuration,
     submitVote,
+    revealResult,
+    replay,
   };
 }
