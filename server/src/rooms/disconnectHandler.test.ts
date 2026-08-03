@@ -56,7 +56,7 @@ describe("disconnectHandler", () => {
     expect(pauseTick).not.toHaveBeenCalled();
   });
 
-  it("pauses the tick and records a grace deadline on disconnect during NIGHT", async () => {
+  it("pauses the tick and records a grace deadline for the disconnecting player during NIGHT", async () => {
     await createRoom(fixture("EFGH", "NIGHT"));
     const pauseTick = vi.fn();
     const resumeTick = vi.fn();
@@ -71,6 +71,28 @@ describe("disconnectHandler", () => {
     const room = await getRoom("EFGH");
     expect(room?.players.find((p) => p.id === "p1")?.connected).toBe(false);
     expect(room?.night?.graceUntil).toBeTypeOf("number");
+    expect(room?.night?.graceForPlayerId).toBe("p1");
+  });
+
+  it("does not resume the tick when a different player reconnects during another player's grace period", async () => {
+    await createRoom(fixture("UVWX", "NIGHT"));
+    const pauseTick = vi.fn();
+    const resumeTick = vi.fn();
+    const handler = createDisconnectHandler({
+      tickRunner: { pauseTick, resumeTick },
+      scheduleGraceTimeout: vi.fn(),
+    });
+
+    // p1 disconnects and opens a grace period; p2 was never disconnected but
+    // its socket reconnects anyway (a normal event — phone lock/unlock, a
+    // tab refresh, a brief network blip). That must NOT resume p1's tick.
+    await handler.handleDisconnect("UVWX", "p1");
+    await handler.handleReconnect("UVWX", "p2");
+
+    expect(resumeTick).not.toHaveBeenCalled();
+    const room = await getRoom("UVWX");
+    expect(room?.night?.graceUntil).toBeTypeOf("number");
+    expect(room?.night?.graceForPlayerId).toBe("p1");
   });
 
   it("resumes the tick and clears the grace deadline if the player reconnects before it expires", async () => {
@@ -86,6 +108,7 @@ describe("disconnectHandler", () => {
     expect(resumeTick).toHaveBeenCalledWith("IJKL");
     const room = await getRoom("IJKL");
     expect(room?.night?.graceUntil).toBeUndefined();
+    expect(room?.night?.graceForPlayerId).toBeUndefined();
 
     // the grace timeout callback must be a no-op if later invoked, since reconnection already cleared it
     const graceCallback = scheduleGraceTimeout.mock.calls[0][0] as () => Promise<void>;
@@ -108,6 +131,7 @@ describe("disconnectHandler", () => {
     expect(resumeTick).toHaveBeenCalledWith("MNOP");
     const room = await getRoom("MNOP");
     expect(room?.night?.graceUntil).toBeUndefined();
+    expect(room?.night?.graceForPlayerId).toBeUndefined();
   });
 
   it("resumes on reconnect even when handled by a different handler instance (cross-instance)", async () => {
@@ -115,7 +139,7 @@ describe("disconnectHandler", () => {
     // Two independent createDisconnectHandler() instances share no in-memory
     // state, simulating a disconnect and its matching reconnect landing on two
     // different Vercel Function instances. The only thing that can make
-    // handleReconnect resume correctly here is the graceUntil deadline
+    // handleReconnect resume correctly here is the graceUntil/graceForPlayerId
     // persisted in Redis by the other instance.
     const instanceA = createDisconnectHandler({
       tickRunner: { pauseTick: vi.fn(), resumeTick: vi.fn() },

@@ -83,6 +83,7 @@ export interface NightState {
   doppelgangerCopiedPlayerId: string | null;
   resolvedActions?: Record<string, { phase1?: boolean; phase2?: boolean }>;
   graceUntil?: number;
+  graceForPlayerId?: string;
 }
 
 export interface DayState {

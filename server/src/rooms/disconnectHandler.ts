@@ -28,16 +28,23 @@ export function createDisconnectHandler(deps: DisconnectHandlerDeps) {
     });
   }
 
-  // graceUntil is the cross-instance-safe source of truth for "is a grace
-  // period currently open for this room's night". It lives in Redis (via
-  // NightState) rather than in a process-local Set, so a reconnect handled
-  // by a different Vercel Function instance than the one that saw the
-  // disconnect still resumes immediately instead of waiting out the full
-  // grace window.
-  async function setGraceUntil(roomCode: string, graceUntil: number | undefined): Promise<void> {
+  // graceUntil/graceForPlayerId are the cross-instance-safe source of truth
+  // for "is a grace period currently open for this room's night, and for
+  // which player". They live in Redis (via NightState) rather than in a
+  // process-local Set, so a reconnect handled by a different Vercel Function
+  // instance than the one that saw the disconnect still resumes immediately
+  // instead of waiting out the full grace window. graceForPlayerId preserves
+  // the per-player scoping the old Set (keyed by roomCode:playerId) already
+  // had: a reconnect from a player who was never disconnected must never
+  // resume a grace period that a DIFFERENT player's disconnect opened.
+  async function setGrace(roomCode: string, grace: { playerId: string; until: number } | undefined): Promise<void> {
     const room = await getRoom(roomCode);
     if (!room || !room.night) return;
-    await saveRoom({ ...room, night: { ...room.night, graceUntil }, updatedAt: Date.now() });
+    await saveRoom({
+      ...room,
+      night: { ...room.night, graceUntil: grace?.until, graceForPlayerId: grace?.playerId },
+      updatedAt: Date.now(),
+    });
   }
 
   async function handleDisconnect(roomCode: string, playerId: string): Promise<void> {
@@ -49,14 +56,15 @@ export function createDisconnectHandler(deps: DisconnectHandlerDeps) {
 
     await deps.tickRunner.pauseTick(roomCode);
     const graceUntil = Date.now() + graceMs;
-    await setGraceUntil(roomCode, graceUntil);
+    await setGrace(roomCode, { playerId, until: graceUntil });
 
     schedule(async () => {
       const current = await getRoom(roomCode);
       // Superseded by a reconnect (cleared) or a newer disconnect (a
-      // different deadline) in the meantime: this stale timeout is a no-op.
-      if (current?.night?.graceUntil !== graceUntil) return;
-      await setGraceUntil(roomCode, undefined);
+      // different deadline and/or a different player) in the meantime:
+      // this stale timeout is a no-op.
+      if (current?.night?.graceUntil !== graceUntil || current.night.graceForPlayerId !== playerId) return;
+      await setGrace(roomCode, undefined);
       await deps.tickRunner.resumeTick(roomCode);
     }, graceMs);
   }
@@ -64,8 +72,12 @@ export function createDisconnectHandler(deps: DisconnectHandlerDeps) {
   async function handleReconnect(roomCode: string, playerId: string): Promise<void> {
     await setConnected(roomCode, playerId, true);
     const room = await getRoom(roomCode);
-    if (room?.night?.graceUntil == null) return;
-    await setGraceUntil(roomCode, undefined);
+    // Only resume if THIS player is the one whose disconnect opened the
+    // currently-open grace period — a different player's socket reconnecting
+    // (a normal event: phone lock/unlock, tab refresh, brief network blip)
+    // must never prematurely resume another player's grace window.
+    if (room?.night?.graceUntil == null || room.night.graceForPlayerId !== playerId) return;
+    await setGrace(roomCode, undefined);
     await deps.tickRunner.resumeTick(roomCode);
   }
 
