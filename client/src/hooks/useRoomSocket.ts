@@ -11,10 +11,12 @@ import type {
   WinningTeam,
 } from "@onuw/shared";
 import { DEFAULT_DAY_DURATION_MS } from "@onuw/shared";
+import { resolveSocketPath, resolveSocketUrl } from "../socketConfig";
 
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-const SOCKET_URL = import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001";
+const SOCKET_URL = resolveSocketUrl(import.meta.env);
+const SOCKET_PATH = resolveSocketPath(import.meta.env);
 const STORAGE_ROOM_CODE = "onuw:roomCode";
 const STORAGE_PLAYER_ID = "onuw:playerId";
 const STORAGE_RECONNECT_TOKEN = "onuw:reconnectToken";
@@ -111,6 +113,7 @@ export function useRoomSocket(): RoomSession {
     const stored = readStoredSession();
     const socket: AppSocket = io(SOCKET_URL, {
       transports: ["websocket"],
+      path: SOCKET_PATH,
       auth: stored.roomCode && stored.playerId && stored.reconnectToken ? stored : {},
     });
     socketRef.current = socket;
