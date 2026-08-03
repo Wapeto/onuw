@@ -21,6 +21,13 @@ export function requireCurrentRole(player: Player): RoleId {
   return player.currentRoleId;
 }
 
+export function requireOriginalRole(player: Player): RoleId {
+  if (player.originalRoleId === undefined) {
+    throw new Error(`player ${player.id} has no assigned role`);
+  }
+  return player.originalRoleId;
+}
+
 export function replacePlayer(
   gameState: GameState,
   playerId: string,
