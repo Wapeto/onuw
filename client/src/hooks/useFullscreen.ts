@@ -5,6 +5,7 @@ export function useFullscreen(active: boolean): void {
     if (!active) return;
 
     void document.documentElement.requestFullscreen?.().catch(() => {});
+    void screen.orientation?.lock("portrait").catch(() => {});
     history.pushState(null, "", location.href);
 
     const blockBack = () => {
@@ -14,6 +15,7 @@ export function useFullscreen(active: boolean): void {
 
     return () => {
       window.removeEventListener("popstate", blockBack);
+      screen.orientation?.unlock();
       if (document.fullscreenElement) void document.exitFullscreen();
     };
   }, [active]);

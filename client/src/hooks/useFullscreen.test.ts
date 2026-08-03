@@ -30,4 +30,29 @@ describe("useFullscreen", () => {
 
     expect(pushStateSpy).toHaveBeenCalled();
   });
+
+  it("attempts to lock screen orientation to portrait when active", () => {
+    const lock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(screen, "orientation", {
+      value: { lock, unlock: vi.fn() },
+      configurable: true,
+    });
+
+    renderHook(() => useFullscreen(true));
+
+    expect(lock).toHaveBeenCalledWith("portrait");
+  });
+
+  it("unlocks screen orientation on cleanup", () => {
+    const unlock = vi.fn();
+    Object.defineProperty(screen, "orientation", {
+      value: { lock: vi.fn().mockResolvedValue(undefined), unlock },
+      configurable: true,
+    });
+
+    const { unmount } = renderHook(() => useFullscreen(true));
+    unmount();
+
+    expect(unlock).toHaveBeenCalled();
+  });
 });
