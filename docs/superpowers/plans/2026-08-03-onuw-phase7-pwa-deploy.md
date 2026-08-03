@@ -1527,6 +1527,7 @@ git commit -m "feat: resolve the Socket.io URL/path from env, defaulting to same
 
 **Files:**
 - Modify: `package.json` (root)
+- Modify: `package-lock.json` (root) — `npm install` in Step 5 registers the new `api` workspace here; commit it alongside the rest, an out-of-sync lockfile fails `npm ci`
 - Modify: `server/package.json`
 - Modify: `server/tsconfig.json`
 - Create: `api/package.json`
@@ -1759,7 +1760,7 @@ Expected: PASS
 - [ ] **Step 10: Commit**
 
 ```bash
-git add package.json server/package.json server/tsconfig.json api/package.json api/tsconfig.json api/socket-io.ts vercel.json docs/deployment.md
+git add package.json package-lock.json server/package.json server/tsconfig.json api/package.json api/tsconfig.json api/socket-io.ts vercel.json docs/deployment.md
 git commit -m "feat: wire up Vercel deployment (api/socket-io.ts, vercel.json, server package entry point)"
 ```
 
