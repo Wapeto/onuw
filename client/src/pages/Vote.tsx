@@ -1,27 +1,18 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useRoomSocket } from "../hooks/useRoomSocket";
 
 function Vote() {
   const { roomCode: routeRoomCode } = useParams<{ roomCode: string }>();
-  const { players, voteResult, submitVote } = useRoomSocket();
+  const navigate = useNavigate();
+  const { players, revealResult, submitVote } = useRoomSocket();
   const [votedFor, setVotedFor] = useState<string | null>(null);
 
-  if (voteResult) {
-    return (
-      <div>
-        <h1>Résultat du vote — {routeRoomCode}</h1>
-        <ul>
-          {players.map((p) => (
-            <li key={p.id}>
-              {p.pseudo} — {voteResult.tally[p.id] ?? 0} voix
-              {voteResult.eliminated.includes(p.id) ? " — éliminé" : ""}
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (revealResult && routeRoomCode) {
+      navigate(`/room/${routeRoomCode}/reveal`);
+    }
+  }, [revealResult, routeRoomCode, navigate]);
 
   return (
     <div>

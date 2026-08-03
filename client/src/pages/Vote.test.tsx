@@ -45,6 +45,7 @@ function renderAt(path: string) {
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/room/:roomCode/vote" element={<Vote />} />
+        <Route path="/room/:roomCode/reveal" element={<div>reveal-page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -66,15 +67,18 @@ describe("Vote", () => {
     expect(screen.getByText(/enregistré/i)).toBeInTheDocument();
   });
 
-  it("shows the tally and eliminated players once VOTE_RESULT arrives", () => {
+  it("navigates to the reveal page once the reveal result arrives", () => {
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
-        voteResult: { tally: { p1: 1, p2: 2, p3: 0 }, eliminated: ["p2"] },
+        revealResult: {
+          eliminated: ["p1"],
+          winningTeam: "village",
+          winners: ["p2", "p3"],
+          players: [],
+        },
       }) as ReturnType<typeof useRoomSocket>,
     );
-
     renderAt("/room/ABCD/vote");
-    expect(screen.getByText(/Bob.*2 voix.*éliminé/is)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Bob" })).not.toBeInTheDocument();
+    expect(screen.getByText("reveal-page")).toBeInTheDocument();
   });
 });
