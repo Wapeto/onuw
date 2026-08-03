@@ -6,6 +6,7 @@ import type {
   PublicPlayer,
   ServerToClientEvents,
   ClientToServerEvents,
+  RevealPayload,
 } from "./types";
 import { ROLE_IDS, isValidRoleId, NIGHT_TICK_IDS, DEFAULT_DAY_DURATION_MS, MIN_DAY_DURATION_MS, MAX_DAY_DURATION_MS } from "./types";
 
@@ -247,5 +248,71 @@ describe("day/vote event contracts", () => {
     serverEvents.VOTE_RESULT({ tally: { p1: 2, p2: 1 }, eliminated: ["p1"] });
     clientEvents.SUBMIT_VOTE({ targetPlayerId: "p1" });
     expect(typeof clientEvents.SET_DAY_DURATION).toBe("function");
+  });
+});
+
+describe("reveal/replay event contracts", () => {
+  it("GameState carries a nullable reveal result and a nullable last role selection", () => {
+    const state: GameState = {
+      roomCode: "ABCD",
+      phase: "REVEAL",
+      players: [],
+      center: [],
+      night: null,
+      day: null,
+      vote: null,
+      reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2", "p3"] },
+      lastRoleSelection: { mode: "classic", roles: { werewolf: 2, villager: 1 } },
+      roleSelection: null,
+      dayDurationMs: DEFAULT_DAY_DURATION_MS,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+
+    expect(state.reveal?.winningTeam).toBe("village");
+    expect(state.lastRoleSelection?.mode).toBe("classic");
+  });
+
+  it("wires REVEAL_RESULT/REPLAY", () => {
+    const serverEvents: ServerToClientEvents = {
+      connected: () => {},
+      ROOM_CREATED: () => {},
+      ROOM_JOINED: () => {},
+      PLAYER_LIST_UPDATE: () => {},
+      ROOM_ERROR: () => {},
+      ROLE_SELECTION_UPDATE: () => {},
+      TICK_START: () => {},
+      TICK_PAYLOAD: () => {},
+      TICK_PAUSED: () => {},
+      TICK_RESUMED: () => {},
+      NIGHT_END: () => {},
+      ACTION_RESULT: () => {},
+      DAY_DURATION_UPDATE: () => {},
+      DAY_START: () => {},
+      VOTE_START: () => {},
+      VOTE_RESULT: () => {},
+      REVEAL_RESULT: () => {},
+    };
+    const clientEvents: ClientToServerEvents = {
+      ping: () => {},
+      CREATE_ROOM: () => {},
+      JOIN_ROOM: () => {},
+      START_ROLE_SELECT: () => {},
+      SET_ROLE_MODE: () => {},
+      SET_CUSTOM_ROLES: () => {},
+      START_GAME: () => {},
+      SUBMIT_NIGHT_ACTION: () => {},
+      SET_DAY_DURATION: () => {},
+      SUBMIT_VOTE: () => {},
+      REPLAY: () => {},
+    };
+
+    serverEvents.REVEAL_RESULT({
+      eliminated: ["p1"],
+      winningTeam: "werewolf",
+      winners: ["w1"],
+      players: [{ id: "p1", pseudo: "Alice", originalRoleId: "villager", currentRoleId: "villager" }],
+    });
+    expect(typeof clientEvents.REPLAY).toBe("function");
   });
 });

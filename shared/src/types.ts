@@ -93,6 +93,25 @@ export interface VoteState {
   votes: Record<string, string>;
 }
 
+export type WinningTeam = "village" | "werewolf" | "tanner";
+
+export interface RevealState {
+  eliminated: string[];
+  winningTeam: WinningTeam;
+  winners: string[];
+}
+
+export interface RevealPlayer {
+  id: string;
+  pseudo: string;
+  originalRoleId: RoleId;
+  currentRoleId: RoleId;
+}
+
+export interface RevealPayload extends RevealState {
+  players: RevealPlayer[];
+}
+
 export interface GameState {
   roomCode: string;
   phase: RoomPhase;
@@ -101,7 +120,9 @@ export interface GameState {
   night: NightState | null;
   day: DayState | null;
   vote: VoteState | null;
+  reveal: RevealState | null;
   roleSelection: RoleSelection | null;
+  lastRoleSelection: RoleSelection | null;
   dayDurationMs: number;
   createdAt: number;
   updatedAt: number;
@@ -124,6 +145,7 @@ export interface ServerToClientEvents {
   DAY_START: (payload: { durationMs: number }) => void;
   VOTE_START: (payload: Record<string, never>) => void;
   VOTE_RESULT: (payload: { tally: Record<string, number>; eliminated: string[] }) => void;
+  REVEAL_RESULT: (payload: RevealPayload) => void;
 }
 
 export interface ClientToServerEvents {
@@ -137,4 +159,5 @@ export interface ClientToServerEvents {
   SUBMIT_NIGHT_ACTION: (payload: { tickId: NightTickId; params: Record<string, unknown> }) => void;
   SET_DAY_DURATION: (payload: { durationMs: number }) => void;
   SUBMIT_VOTE: (payload: { targetPlayerId: string }) => void;
+  REPLAY: () => void;
 }
