@@ -21,7 +21,7 @@ describe("canTransition", () => {
     ["NIGHT", "DAY"],
     ["DAY", "VOTE"],
     ["VOTE", "REVEAL"],
-    ["REVEAL", "LOBBY"],
+    ["REVEAL", "ROLE_SELECT"],
   ] as const)("allows %s -> %s", (from, to) => {
     expect(canTransition(from, to)).toBe(true);
   });
@@ -30,6 +30,7 @@ describe("canTransition", () => {
     ["LOBBY", "NIGHT"],
     ["NIGHT", "LOBBY"],
     ["DAY", "REVEAL"],
+    ["REVEAL", "LOBBY"],
   ] as const)("rejects %s -> %s", (from, to) => {
     expect(canTransition(from, to)).toBe(false);
   });

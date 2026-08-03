@@ -6,7 +6,7 @@ const ALLOWED_TRANSITIONS: Record<RoomPhase, RoomPhase[]> = {
   NIGHT: ["DAY"],
   DAY: ["VOTE"],
   VOTE: ["REVEAL"],
-  REVEAL: ["LOBBY"],
+  REVEAL: ["ROLE_SELECT"],
 };
 
 export function canTransition(from: RoomPhase, to: RoomPhase): boolean {
