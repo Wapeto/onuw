@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { GameState } from "@onuw/shared";
-import { toPublicPlayers } from "./roomView.js";
+import { toPublicPlayers, toRevealPlayers } from "./roomView.js";
 
 function fixture(phase: GameState["phase"]): GameState {
   return {
@@ -36,5 +36,23 @@ describe("toPublicPlayers", () => {
     const players = toPublicPlayers(fixture("NIGHT"));
     expect(players[0]).not.toHaveProperty("originalRoleId");
     expect(players[0]).not.toHaveProperty("currentRoleId");
+  });
+});
+
+describe("toRevealPlayers", () => {
+  it("maps each player to their pseudo, original role, and final role", () => {
+    const state = fixture("REVEAL");
+    const revealPlayers = toRevealPlayers({
+      ...state,
+      players: [
+        { ...state.players[0], originalRoleId: "seer", currentRoleId: "robber" },
+        { ...state.players[1], originalRoleId: "villager", currentRoleId: "villager" },
+      ],
+    });
+
+    expect(revealPlayers).toEqual([
+      { id: "p1", pseudo: "Alice", originalRoleId: "seer", currentRoleId: "robber" },
+      { id: "p2", pseudo: "Bob", originalRoleId: "villager", currentRoleId: "villager" },
+    ]);
   });
 });
