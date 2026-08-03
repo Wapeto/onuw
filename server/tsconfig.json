@@ -6,7 +6,9 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node"]
+    "types": ["node"],
+    // Emits dist/index.d.ts so the `api` workspace can type-check `import { createApp } from "@onuw/server"`.
+    "declaration": true
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"]
