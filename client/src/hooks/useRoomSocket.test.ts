@@ -244,6 +244,7 @@ describe("day/vote state", () => {
         eliminated: ["p1"],
         winningTeam: "village",
         winners: ["p2"],
+        tally: { p1: 2, p2: 1 },
         players: [{ id: "p1", pseudo: "Alice", originalRoleId: "werewolf", currentRoleId: "werewolf" }],
       });
     });

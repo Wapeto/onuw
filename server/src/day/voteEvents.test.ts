@@ -111,13 +111,19 @@ describe("registerVoteEvents", () => {
     await s3.trigger("SUBMIT_VOTE", { targetPlayerId: "p1" });
 
     const room = await getRoom("MNOP");
-    expect(room?.reveal).toEqual({ eliminated: ["p1"], winningTeam: "village", winners: ["p2", "p3"] });
+    expect(room?.reveal).toEqual({
+      eliminated: ["p1"],
+      winningTeam: "village",
+      winners: ["p2", "p3"],
+      tally: { p1: 3, p2: 0, p3: 0 },
+    });
 
     const revealEvent = io.emitted.find((e) => e.event === "REVEAL_RESULT");
     expect(revealEvent?.payload).toEqual({
       eliminated: ["p1"],
       winningTeam: "village",
       winners: ["p2", "p3"],
+      tally: { p1: 3, p2: 0, p3: 0 },
       players: [
         { id: "p1", pseudo: "Alice", originalRoleId: "werewolf", currentRoleId: "werewolf" },
         { id: "p2", pseudo: "Bob", originalRoleId: "villager", currentRoleId: "villager" },

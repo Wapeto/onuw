@@ -318,7 +318,7 @@ describe("room events", () => {
       night: null,
       day: null,
       vote: null,
-      reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2"] },
+      reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2"], tally: { p1: 2 } },
       roleSelection: null,
       lastRoleSelection: null,
       dayDurationMs: 240_000,
@@ -340,6 +340,7 @@ describe("room events", () => {
       eliminated: ["p1"],
       winningTeam: "village",
       winners: ["p2"],
+      tally: { p1: 2 },
       players: [
         { id: "p1", pseudo: "Alice", originalRoleId: "werewolf", currentRoleId: "werewolf" },
         { id: "p2", pseudo: "Bob", originalRoleId: "villager", currentRoleId: "villager" },

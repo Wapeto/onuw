@@ -260,7 +260,7 @@ describe("reveal/replay event contracts", () => {
       night: null,
       day: null,
       vote: null,
-      reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2", "p3"] },
+      reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2", "p3"], tally: { p1: 2 } },
       lastRoleSelection: { mode: "classic", roles: { werewolf: 2, villager: 1 } },
       roleSelection: null,
       dayDurationMs: DEFAULT_DAY_DURATION_MS,
@@ -310,6 +310,7 @@ describe("reveal/replay event contracts", () => {
       eliminated: ["p1"],
       winningTeam: "werewolf",
       winners: ["w1"],
+      tally: { p1: 2 },
       players: [{ id: "p1", pseudo: "Alice", originalRoleId: "villager", currentRoleId: "villager" }],
     });
     expect(typeof clientEvents.REPLAY).toBe("function");

@@ -34,7 +34,7 @@ function Reveal() {
       <ul>
         {revealResult.players.map((p) => (
           <li key={p.id}>
-            {p.pseudo} — {roleLabel(p.originalRoleId)}
+            {p.pseudo} — {revealResult.tally[p.id] ?? 0} voix — {roleLabel(p.originalRoleId)}
             {p.originalRoleId !== p.currentRoleId ? ` → ${roleLabel(p.currentRoleId)}` : ""}
             {revealResult.eliminated.includes(p.id) ? " — éliminé" : ""}
             {revealResult.winners.includes(p.id) ? " 🏆" : ""}

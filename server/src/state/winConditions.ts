@@ -30,7 +30,7 @@ export function computeWinConditions(
   players: Player[],
   votes: Record<string, string>,
   votedEliminated: string[],
-): RevealState {
+): Omit<RevealState, "tally"> {
   const roleOf = new Map(players.map((p) => [p.id, requireCurrentRole(p)]));
   const eliminated = new Set(votedEliminated);
   chainHunterKills(roleOf, votes, eliminated);

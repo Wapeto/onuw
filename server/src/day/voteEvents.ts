@@ -51,7 +51,8 @@ export function registerVoteEvents(
           votes,
           room.players.map((p) => p.id),
         );
-        const reveal = computeWinConditions(room.players, votes, result.eliminated);
+        const winConditions = computeWinConditions(room.players, votes, result.eliminated);
+        const reveal = { ...winConditions, tally: result.tally };
         return { ...transition(room, "REVEAL"), vote: null, reveal, updatedAt: Date.now() };
       });
       if (result) {

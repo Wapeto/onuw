@@ -99,6 +99,7 @@ export interface RevealState {
   eliminated: string[];
   winningTeam: WinningTeam;
   winners: string[];
+  tally: Record<string, number>;
 }
 
 export interface RevealPlayer {

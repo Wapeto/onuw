@@ -17,7 +17,7 @@ function fixture(roomCode: string): GameState {
     night: null,
     day: null,
     vote: null,
-    reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2"] },
+    reveal: { eliminated: ["p1"], winningTeam: "village", winners: ["p2"], tally: { p1: 2 } },
     roleSelection: null,
     lastRoleSelection: { mode: "classic", roles: { werewolf: 2, seer: 1, robber: 1, troublemaker: 1, villager: 1 } },
     dayDurationMs: 240_000,

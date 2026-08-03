@@ -68,6 +68,7 @@ describe("Reveal", () => {
           eliminated: ["p1"],
           winningTeam: "village",
           winners: ["p2"],
+          tally: { p1: 2, p2: 1 },
           players: [
             { id: "p1", pseudo: "Alice", originalRoleId: "werewolf", currentRoleId: "werewolf" },
             { id: "p2", pseudo: "Bob", originalRoleId: "villager", currentRoleId: "villager" },
@@ -81,13 +82,14 @@ describe("Reveal", () => {
     expect(screen.getByText(/alice/i)).toBeInTheDocument();
     expect(screen.getByText(/loup-garou/i)).toBeInTheDocument();
     expect(screen.getByText(/éliminé/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 voix/i)).toBeInTheDocument();
   });
 
   it("shows the Rejouer button only for the host, and calls replay() on click", () => {
     const replay = vi.fn();
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
-        revealResult: { eliminated: [], winningTeam: "werewolf", winners: [], players: [] },
+        revealResult: { eliminated: [], winningTeam: "werewolf", winners: [], tally: {}, players: [] },
         replay,
       }) as ReturnType<typeof useRoomSocket>,
     );
@@ -102,7 +104,7 @@ describe("Reveal", () => {
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
         playerId: "p2",
-        revealResult: { eliminated: [], winningTeam: "werewolf", winners: [], players: [] },
+        revealResult: { eliminated: [], winningTeam: "werewolf", winners: [], tally: {}, players: [] },
       }) as ReturnType<typeof useRoomSocket>,
     );
     renderAt("/room/ABCD/reveal");
@@ -113,7 +115,7 @@ describe("Reveal", () => {
   it("navigates to the role select page once roleSelection reappears after Rejouer", () => {
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
-        revealResult: { eliminated: [], winningTeam: "werewolf", winners: [], players: [] },
+        revealResult: { eliminated: [], winningTeam: "werewolf", winners: [], tally: {}, players: [] },
         roleSelection: { mode: "classic", roles: { werewolf: 2 }, valid: true },
       }) as ReturnType<typeof useRoomSocket>,
     );

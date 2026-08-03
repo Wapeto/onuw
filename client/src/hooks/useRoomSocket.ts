@@ -8,6 +8,7 @@ import type {
   RevealPlayer,
   RoleCounts,
   ServerToClientEvents,
+  WinningTeam,
 } from "@onuw/shared";
 import { DEFAULT_DAY_DURATION_MS } from "@onuw/shared";
 
@@ -42,8 +43,9 @@ export interface VoteResultState {
 
 export interface RevealResultState {
   eliminated: string[];
-  winningTeam: "village" | "werewolf" | "tanner";
+  winningTeam: WinningTeam;
   winners: string[];
+  tally: Record<string, number>;
   players: RevealPlayer[];
 }
 
