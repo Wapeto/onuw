@@ -1,0 +1,18 @@
+{
+  "name": "One Night Ultimate Werewolf",
+  "short_name": "ONUW",
+  "description": "Jouez à One Night Ultimate Werewolf en multi-device, sans app à installer sur chaque téléphone.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f0f14",
+  "theme_color": "#863bff",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
