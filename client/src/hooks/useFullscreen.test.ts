@@ -55,4 +55,16 @@ describe("useFullscreen", () => {
 
     expect(unlock).toHaveBeenCalled();
   });
+
+  it("does not throw when screen.orientation exists without lock/unlock methods (e.g. Safari)", () => {
+    Object.defineProperty(screen, "orientation", {
+      value: {},
+      configurable: true,
+    });
+
+    expect(() => {
+      const { unmount } = renderHook(() => useFullscreen(true));
+      unmount();
+    }).not.toThrow();
+  });
 });

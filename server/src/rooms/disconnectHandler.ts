@@ -1,4 +1,4 @@
-import { getRoom, saveRoom } from "./roomStore.js";
+import { getRoom, saveRoom, withRoom, RoomNotFoundError } from "./roomStore.js";
 
 export interface DisconnectHandlerTickRunner {
   pauseTick(roomCode: string): Promise<void>;
@@ -38,13 +38,16 @@ export function createDisconnectHandler(deps: DisconnectHandlerDeps) {
   // had: a reconnect from a player who was never disconnected must never
   // resume a grace period that a DIFFERENT player's disconnect opened.
   async function setGrace(roomCode: string, grace: { playerId: string; until: number } | undefined): Promise<void> {
-    const room = await getRoom(roomCode);
-    if (!room || !room.night) return;
-    await saveRoom({
-      ...room,
-      night: { ...room.night, graceUntil: grace?.until, graceForPlayerId: grace?.playerId },
-      updatedAt: Date.now(),
-    });
+    try {
+      await withRoom(roomCode, (room) =>
+        room.night
+          ? { ...room, night: { ...room.night, graceUntil: grace?.until, graceForPlayerId: grace?.playerId } }
+          : room,
+      );
+    } catch (err) {
+      if (err instanceof RoomNotFoundError) return;
+      throw err;
+    }
   }
 
   async function handleDisconnect(roomCode: string, playerId: string): Promise<void> {

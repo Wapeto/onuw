@@ -20,6 +20,12 @@ describe("role select events", () => {
   afterEach(async () => {
     for (const c of clients.splice(0)) c.close();
     await new Promise<void>((resolve) => app.io.close(() => resolve()));
+    // createApp() duplicates a dedicated Redis connection for the Socket.io
+    // adapter; without quitting it here every test leaks one, and the
+    // still-open connections reject their in-flight commands with
+    // "Connection is closed." at teardown — an unhandled rejection that
+    // surfaces as a suite-level failure even though every assertion passed.
+    await app.subClient.quit();
     await getRedisClient().flushdb();
   });
 

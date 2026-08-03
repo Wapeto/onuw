@@ -9,6 +9,10 @@ describe("server bootstrap", () => {
   afterEach(async () => {
     client?.close();
     await new Promise<void>((resolve) => app.io.close(() => resolve()));
+    // See roleSelectEvents.test.ts: createApp()'s duplicated adapter
+    // connection must be quit per test, or it leaks and its in-flight
+    // commands reject at teardown as an unhandled "Connection is closed.".
+    await app.subClient.quit();
   });
 
   it("emits a connected event carrying the socket id", async () => {

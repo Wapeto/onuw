@@ -57,6 +57,7 @@ function baseSession(overrides: Record<string, unknown> = {}) {
 
 describe("RoleSelect", () => {
   beforeEach(() => {
+    localStorage.setItem("onuw:onboarding-dismissed:ABCDE", "1");
     vi.mocked(useRoomSocket).mockReturnValue(baseSession() as ReturnType<typeof useRoomSocket>);
   });
 
@@ -184,7 +185,23 @@ describe("RoleSelect", () => {
     expect(session.startGame).toHaveBeenCalled();
   });
 
-  it("shows the onboarding notice once currentTick is set, then navigates to night on continue", () => {
+  it("shows the onboarding notice immediately for a room that hasn't dismissed it yet", () => {
+    localStorage.removeItem("onuw:onboarding-dismissed:ABCDE");
+    vi.mocked(useRoomSocket).mockReturnValue(baseSession() as ReturnType<typeof useRoomSocket>);
+    renderAt("/room/ABCDE/roles");
+    expect(screen.getByText(/tête baissée/i)).toBeInTheDocument();
+  });
+
+  it("shows the normal role-select UI after continuing past the onboarding notice", () => {
+    localStorage.removeItem("onuw:onboarding-dismissed:ABCDE");
+    vi.mocked(useRoomSocket).mockReturnValue(baseSession() as ReturnType<typeof useRoomSocket>);
+    renderAt("/room/ABCDE/roles");
+    fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
+    expect(screen.getByRole("button", { name: /classique/i })).toBeInTheDocument();
+  });
+
+  it("navigates to night as soon as continuing past the notice, if a tick is already active", () => {
+    localStorage.removeItem("onuw:onboarding-dismissed:ABCDE");
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
         currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
@@ -197,7 +214,6 @@ describe("RoleSelect", () => {
   });
 
   it("skips the onboarding notice when it was previously dismissed for this room", () => {
-    localStorage.setItem("onuw:onboarding-dismissed:ABCDE", "1");
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
         currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
@@ -208,22 +224,16 @@ describe("RoleSelect", () => {
   });
 
   it("persists the dismissal by default when continuing (checkbox starts checked)", () => {
-    vi.mocked(useRoomSocket).mockReturnValue(
-      baseSession({
-        currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
-      }) as ReturnType<typeof useRoomSocket>,
-    );
+    localStorage.removeItem("onuw:onboarding-dismissed:ABCDE");
+    vi.mocked(useRoomSocket).mockReturnValue(baseSession() as ReturnType<typeof useRoomSocket>);
     renderAt("/room/ABCDE/roles");
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
     expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBe("1");
   });
 
   it("does not persist the dismissal when 'don't show again' is unchecked before continuing", () => {
-    vi.mocked(useRoomSocket).mockReturnValue(
-      baseSession({
-        currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
-      }) as ReturnType<typeof useRoomSocket>,
-    );
+    localStorage.removeItem("onuw:onboarding-dismissed:ABCDE");
+    vi.mocked(useRoomSocket).mockReturnValue(baseSession() as ReturnType<typeof useRoomSocket>);
     renderAt("/room/ABCDE/roles");
     fireEvent.click(screen.getByRole("checkbox", { name: /ne plus afficher/i }));
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));

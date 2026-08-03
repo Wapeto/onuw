@@ -21,27 +21,31 @@ function RoleSelect() {
   const navigate = useNavigate();
   const { playerId, players, roleSelection, currentTick, setRoleMode, setCustomRoles, startGame, dayDurationMs, setDayDuration } = useRoomSocket();
 
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  // Shown immediately on arrival, not gated on currentTick/night starting:
+  // gating on currentTick meant the notice raced tick 0's already-running
+  // clock (TICK_START is broadcast the instant the server arms tick 0's
+  // timer), risking a new group missing their own first tick while reading
+  // it. Showing it as soon as the player lands here — well before the host
+  // can even start the game — avoids that race entirely.
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () => !routeRoomCode || isOnboardingDismissed(routeRoomCode),
+  );
 
   useEffect(() => {
-    if (currentTick && routeRoomCode) {
-      if (isOnboardingDismissed(routeRoomCode)) {
-        navigate(`/room/${routeRoomCode}/night`);
-      } else {
-        setShowOnboarding(true);
-      }
+    if (currentTick && routeRoomCode && onboardingDismissed) {
+      navigate(`/room/${routeRoomCode}/night`);
     }
-  }, [currentTick, routeRoomCode, navigate]);
+  }, [currentTick, routeRoomCode, navigate, onboardingDismissed]);
 
   const me = players.find((p) => p.id === playerId);
   const isHost = me?.isHost ?? false;
 
-  if (showOnboarding && routeRoomCode) {
+  if (!onboardingDismissed && routeRoomCode) {
     return (
       <OnboardingNotice
         onContinue={(dontShowAgain) => {
           if (dontShowAgain) dismissOnboarding(routeRoomCode);
-          navigate(`/room/${routeRoomCode}/night`);
+          setOnboardingDismissed(true);
         }}
       />
     );

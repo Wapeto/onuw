@@ -35,6 +35,14 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(event.request);
         const cache = await caches.open(SHELL_CACHE_NAME);
         void cache.put(event.request, response.clone());
+        // Navigation responses (the app shell itself) are additionally
+        // cached under the fixed fallback key, since Vite Router serves the
+        // same index.html for every client-side route — without this, the
+        // offline fallback below can never match anything, because nothing
+        // is ever requested under the literal "/index.html" URL.
+        if (event.request.mode === "navigate") {
+          void cache.put(SHELL_FALLBACK_PATH, response.clone());
+        }
         return response;
       } catch {
         const cache = await caches.open(SHELL_CACHE_NAME);

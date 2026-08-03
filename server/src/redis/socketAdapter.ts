@@ -6,6 +6,7 @@ import { getRedisClient } from "./client.js";
 export function attachRedisAdapter(io: Server): Redis {
   const pubClient = getRedisClient();
   const subClient = pubClient.duplicate();
+  subClient.on("error", () => {});
   io.adapter(createAdapter(pubClient, subClient));
   return subClient;
 }

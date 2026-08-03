@@ -64,6 +64,10 @@ describe("App", () => {
       revealResult: null,
       replay: vi.fn(),
     });
+    // This test is about routing, not onboarding: pre-dismiss the notice for
+    // this room so RoleSelect renders its normal UI. Since the notice is no
+    // longer gated on currentTick, it would otherwise cover the heading.
+    localStorage.setItem("onuw:onboarding-dismissed:ABCDE", "1");
     window.history.pushState({}, "", "/room/ABCDE/roles");
     render(<App />);
     expect(screen.getByRole("heading", { name: /configuration des rôles/i })).toBeInTheDocument();
