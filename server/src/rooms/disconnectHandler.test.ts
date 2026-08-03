@@ -56,7 +56,7 @@ describe("disconnectHandler", () => {
     expect(pauseTick).not.toHaveBeenCalled();
   });
 
-  it("pauses the tick on disconnect during NIGHT", async () => {
+  it("pauses the tick and records a grace deadline on disconnect during NIGHT", async () => {
     await createRoom(fixture("EFGH", "NIGHT"));
     const pauseTick = vi.fn();
     const resumeTick = vi.fn();
@@ -70,9 +70,10 @@ describe("disconnectHandler", () => {
     expect(pauseTick).toHaveBeenCalledWith("EFGH");
     const room = await getRoom("EFGH");
     expect(room?.players.find((p) => p.id === "p1")?.connected).toBe(false);
+    expect(room?.night?.graceUntil).toBeTypeOf("number");
   });
 
-  it("resumes the tick if the player reconnects before grace expires", async () => {
+  it("resumes the tick and clears the grace deadline if the player reconnects before it expires", async () => {
     await createRoom(fixture("IJKL", "NIGHT"));
     const pauseTick = vi.fn();
     const resumeTick = vi.fn();
@@ -83,7 +84,10 @@ describe("disconnectHandler", () => {
     await handler.handleReconnect("IJKL", "p1");
 
     expect(resumeTick).toHaveBeenCalledWith("IJKL");
-    // the grace timeout callback must be a no-op if later invoked, since reconnection already resumed
+    const room = await getRoom("IJKL");
+    expect(room?.night?.graceUntil).toBeUndefined();
+
+    // the grace timeout callback must be a no-op if later invoked, since reconnection already cleared it
     const graceCallback = scheduleGraceTimeout.mock.calls[0][0] as () => Promise<void>;
     resumeTick.mockClear();
     await graceCallback();
@@ -102,5 +106,27 @@ describe("disconnectHandler", () => {
     await graceCallback();
 
     expect(resumeTick).toHaveBeenCalledWith("MNOP");
+    const room = await getRoom("MNOP");
+    expect(room?.night?.graceUntil).toBeUndefined();
+  });
+
+  it("resumes on reconnect even when handled by a different handler instance (cross-instance)", async () => {
+    await createRoom(fixture("QRST", "NIGHT"));
+    // Two independent createDisconnectHandler() instances share no in-memory
+    // state, simulating a disconnect and its matching reconnect landing on two
+    // different Vercel Function instances. The only thing that can make
+    // handleReconnect resume correctly here is the graceUntil deadline
+    // persisted in Redis by the other instance.
+    const instanceA = createDisconnectHandler({
+      tickRunner: { pauseTick: vi.fn(), resumeTick: vi.fn() },
+      scheduleGraceTimeout: vi.fn(),
+    });
+    const resumeTickB = vi.fn();
+    const instanceB = createDisconnectHandler({ tickRunner: { pauseTick: vi.fn(), resumeTick: resumeTickB } });
+
+    await instanceA.handleDisconnect("QRST", "p1");
+    await instanceB.handleReconnect("QRST", "p1");
+
+    expect(resumeTickB).toHaveBeenCalledWith("QRST");
   });
 });
