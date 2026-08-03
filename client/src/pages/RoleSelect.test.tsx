@@ -184,7 +184,20 @@ describe("RoleSelect", () => {
     expect(session.startGame).toHaveBeenCalled();
   });
 
-  it("navigates to the night page once currentTick is set", () => {
+  it("shows the onboarding notice once currentTick is set, then navigates to night on continue", () => {
+    vi.mocked(useRoomSocket).mockReturnValue(
+      baseSession({
+        currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
+      }) as ReturnType<typeof useRoomSocket>,
+    );
+    renderAt("/room/ABCDE/roles");
+    expect(screen.getByText(/tête baissée/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
+    expect(screen.getByText("night-page")).toBeInTheDocument();
+  });
+
+  it("skips the onboarding notice when it was previously dismissed for this room", () => {
+    localStorage.setItem("onuw:onboarding-dismissed:ABCDE", "1");
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
         currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
@@ -192,6 +205,18 @@ describe("RoleSelect", () => {
     );
     renderAt("/room/ABCDE/roles");
     expect(screen.getByText("night-page")).toBeInTheDocument();
+  });
+
+  it("persists the dismissal when 'don't show again' is checked before continuing", () => {
+    vi.mocked(useRoomSocket).mockReturnValue(
+      baseSession({
+        currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
+      }) as ReturnType<typeof useRoomSocket>,
+    );
+    renderAt("/room/ABCDE/roles");
+    fireEvent.click(screen.getByRole("checkbox", { name: /ne plus afficher/i }));
+    fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
+    expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBe("1");
   });
 
   it("lets the host change the day duration and shows it to everyone", () => {

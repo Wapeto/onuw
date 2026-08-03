@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { GameMode, RoleId } from "@onuw/shared";
 import { ROLE_IDS, totalRoleCount, MIN_DAY_DURATION_MS, MAX_DAY_DURATION_MS } from "@onuw/shared";
 import { useRoomSocket } from "../hooks/useRoomSocket";
 import RoleRecap from "../components/RoleRecap";
+import OnboardingNotice from "../components/OnboardingNotice";
+import { isOnboardingDismissed, dismissOnboarding } from "../onboardingStorage";
 import { roleLabel } from "../roleLabels";
 
 const MODES: { id: GameMode; label: string }[] = [
@@ -19,14 +21,31 @@ function RoleSelect() {
   const navigate = useNavigate();
   const { playerId, players, roleSelection, currentTick, setRoleMode, setCustomRoles, startGame, dayDurationMs, setDayDuration } = useRoomSocket();
 
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   useEffect(() => {
     if (currentTick && routeRoomCode) {
-      navigate(`/room/${routeRoomCode}/night`);
+      if (isOnboardingDismissed(routeRoomCode)) {
+        navigate(`/room/${routeRoomCode}/night`);
+      } else {
+        setShowOnboarding(true);
+      }
     }
   }, [currentTick, routeRoomCode, navigate]);
 
   const me = players.find((p) => p.id === playerId);
   const isHost = me?.isHost ?? false;
+
+  if (showOnboarding && routeRoomCode) {
+    return (
+      <OnboardingNotice
+        onContinue={(dontShowAgain) => {
+          if (dontShowAgain) dismissOnboarding(routeRoomCode);
+          navigate(`/room/${routeRoomCode}/night`);
+        }}
+      />
+    );
+  }
 
   if (!roleSelection) {
     return <p>Chargement de la configuration…</p>;
