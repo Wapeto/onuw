@@ -10,6 +10,7 @@ type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 class NotHostError extends Error {}
 class WrongPhaseError extends Error {}
+class NoLastRoleSelectionError extends Error {}
 
 function requireHost(room: GameState, playerId: string): void {
   const player = room.players.find((p) => p.id === playerId);
@@ -19,6 +20,7 @@ function requireHost(room: GameState, playerId: string): void {
 function errorMessageFor(err: unknown): string {
   if (err instanceof NotHostError) return "seul l'hôte peut relancer une partie";
   if (err instanceof WrongPhaseError) return "action impossible dans la phase actuelle de la partie";
+  if (err instanceof NoLastRoleSelectionError) return "impossible de relancer la partie";
   return "impossible de relancer la partie";
 }
 
@@ -34,10 +36,9 @@ export function registerReplayEvents(
       const state = await withRoom(membership.roomCode, (room) => {
         requireHost(room, membership.playerId);
         if (room.phase !== "REVEAL") throw new WrongPhaseError();
+        if (!room.lastRoleSelection) throw new NoLastRoleSelectionError();
 
-        const roleSelection = room.lastRoleSelection
-          ? { mode: room.lastRoleSelection.mode, roles: { ...room.lastRoleSelection.roles } }
-          : null;
+        const roleSelection = { mode: room.lastRoleSelection.mode, roles: { ...room.lastRoleSelection.roles } };
         const players = room.players.map((p) => ({
           ...p,
           originalRoleId: undefined,

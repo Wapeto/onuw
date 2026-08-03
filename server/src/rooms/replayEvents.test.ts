@@ -114,4 +114,17 @@ describe("registerReplayEvents", () => {
     expect(room?.phase).toBe("LOBBY");
     expect(socket.emitted.find((e) => e.event === "ROOM_ERROR")).toBeDefined();
   });
+
+  it("rejects REPLAY when there is no lastRoleSelection to restore, leaving the room in REVEAL", async () => {
+    await createRoom({ ...fixture("GHIJ"), lastRoleSelection: null });
+    const io = fakeIo();
+    const socket = fakeSocket();
+    registerReplayEvents(io as never, socket as never, () => ({ roomCode: "GHIJ", playerId: "p1" }));
+
+    await socket.trigger("REPLAY", undefined);
+
+    const room = await getRoom("GHIJ");
+    expect(room?.phase).toBe("REVEAL");
+    expect(socket.emitted.find((e) => e.event === "ROOM_ERROR")).toBeDefined();
+  });
 });
