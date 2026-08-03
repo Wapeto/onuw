@@ -1004,6 +1004,7 @@ git commit -m "feat: add an offline app-shell service worker, built as a stable 
 - Modify: `client/src/pages/RoleSelect.tsx`
 - Modify: `client/src/pages/RoleSelect.test.tsx`
 - Modify: `client/src/test/setup.ts`
+- Modify: `client/vitest.config.ts`
 
 **Interfaces:**
 - Produces: `isOnboardingDismissed(roomCode: string): boolean`, `dismissOnboarding(roomCode: string): void` (from `onboardingStorage.ts`); `<OnboardingNotice onContinue={(dontShowAgain: boolean) => void} />` (from `OnboardingNotice.tsx`).
@@ -1138,7 +1139,7 @@ Expected: PASS (3/3)
 
 - [ ] **Step 9: Clear `localStorage` between tests globally**
 
-In `client/src/test/setup.ts`, add the clear alongside the existing `cleanup()`:
+In `client/src/test/setup.ts`, add the clear alongside the existing `cleanup()` — guarded, since `manifest.test.ts` (Task 3) opts into the plain `node` test environment via `// @vitest-environment node`, which has no jsdom-backed `localStorage` at all:
 
 ```ts
 import { afterEach } from "vitest";
@@ -1147,9 +1148,34 @@ import "@testing-library/jest-dom/vitest";
 
 afterEach(() => {
   cleanup();
-  localStorage.clear();
+  // Some test files (e.g. manifest.test.ts) opt into the plain "node"
+  // environment via `// @vitest-environment node`, where no jsdom-backed
+  // `localStorage` exists — guard so this global hook doesn't blow those up.
+  if (typeof localStorage !== "undefined") {
+    localStorage.clear();
+  }
 });
 ```
+
+Also add `execArgv: ["--no-experimental-webstorage"]` to `client/vitest.config.ts`'s `test` config. Node 22.4+ ships an experimental global `localStorage` accessor that shadows jsdom's implementation unless disabled — without this flag, `localStorage` reads as `undefined` inside jsdom-environment tests on newer Node versions, breaking every test that touches it (this task's new tests included):
+
+```ts
+import { defineConfig, mergeConfig } from "vitest/config";
+import viteConfig from "./vite.config";
+
+export default mergeConfig(
+  viteConfig,
+  defineConfig({
+    test: {
+      environment: "jsdom",
+      setupFiles: ["./src/test/setup.ts"],
+      execArgv: ["--no-experimental-webstorage"],
+    },
+  }),
+);
+```
+
+(If `client/vitest.config.ts` already has other `test` options beyond `environment`/`setupFiles` by the time this task runs, add `execArgv` alongside them rather than replacing the whole file — the snippet above shows the file's current shape as of Task 4.)
 
 - [ ] **Step 10: Update the existing RoleSelect test that now regresses**
 
