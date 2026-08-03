@@ -10,6 +10,7 @@ import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } 
 import { registerNightActionEvents } from "../night/nightActionEvents.js";
 import { registerDayDurationEvents } from "../day/dayDurationEvents.js";
 import { registerVoteEvents } from "../day/voteEvents.js";
+import { registerReplayEvents } from "./replayEvents.js";
 import { createDisconnectHandler } from "./disconnectHandler.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -246,4 +247,5 @@ export function registerRoomEvents(
   registerNightActionEvents(io, socket, () => membership);
   registerDayDurationEvents(io, socket, () => membership);
   registerVoteEvents(io, socket, () => membership);
+  registerReplayEvents(io, socket, () => membership);
 }
