@@ -1392,7 +1392,7 @@ export function useFullscreen(active: boolean): void {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test -w client -- useFullscreen`
-Expected: PASS (6/6)
+Expected: PASS (5/5) — the existing file has 3 tests; this task adds 2.
 
 - [ ] **Step 5: Run the full client suite and the build**
 
