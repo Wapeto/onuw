@@ -763,11 +763,13 @@ Create `client/tsconfig.sw.json`:
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/sw.ts"]
+  "include": ["src/sw.ts", "src/sw.test.ts"]
 }
 ```
 
-In `client/tsconfig.app.json`, exclude `sw.ts` from the DOM-lib app project (add the `exclude` key after `include`):
+`sw.test.ts` must be included here too, alongside `sw.ts` — TypeScript's `exclude` only prunes the initial root-file list; it doesn't stop an excluded file from being pulled back into a project if another *included* file in that project imports it. Since `sw.test.ts` imports `./sw`, it has to live in the same project as `sw.ts` (this project, with the `WebWorker` lib) rather than in `tsconfig.app.json`'s DOM-lib project, or `tsc -b` type-checks `sw.ts` twice — once correctly here, once incorrectly under `tsconfig.app.json` via the transitive import — and the second pass fails with `ServiceWorkerGlobalScope`/implicit-`any` errors.
+
+In `client/tsconfig.app.json`, exclude `sw.ts` **and `sw.test.ts`** from the DOM-lib app project, for the same reason (add the `exclude` key after `include`):
 
 ```json
 {
@@ -795,7 +797,7 @@ In `client/tsconfig.app.json`, exclude `sw.ts` from the DOM-lib app project (add
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/sw.ts"]
+  "exclude": ["src/sw.ts", "src/sw.test.ts"]
 }
 ```
 
