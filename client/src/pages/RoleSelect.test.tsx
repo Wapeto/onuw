@@ -207,7 +207,18 @@ describe("RoleSelect", () => {
     expect(screen.getByText("night-page")).toBeInTheDocument();
   });
 
-  it("persists the dismissal when 'don't show again' is checked before continuing", () => {
+  it("persists the dismissal by default when continuing (checkbox starts checked)", () => {
+    vi.mocked(useRoomSocket).mockReturnValue(
+      baseSession({
+        currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
+      }) as ReturnType<typeof useRoomSocket>,
+    );
+    renderAt("/room/ABCDE/roles");
+    fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
+    expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBe("1");
+  });
+
+  it("does not persist the dismissal when 'don't show again' is unchecked before continuing", () => {
     vi.mocked(useRoomSocket).mockReturnValue(
       baseSession({
         currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
@@ -216,7 +227,7 @@ describe("RoleSelect", () => {
     renderAt("/room/ABCDE/roles");
     fireEvent.click(screen.getByRole("checkbox", { name: /ne plus afficher/i }));
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
-    expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBe("1");
+    expect(localStorage.getItem("onuw:onboarding-dismissed:ABCDE")).toBeNull();
   });
 
   it("lets the host change the day duration and shows it to everyone", () => {

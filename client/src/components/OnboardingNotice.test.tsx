@@ -8,18 +8,18 @@ describe("OnboardingNotice", () => {
     expect(screen.getByText(/tête baissée/i)).toBeInTheDocument();
   });
 
-  it("calls onContinue(false) by default", () => {
+  it("calls onContinue(true) by default (checkbox starts checked)", () => {
     const onContinue = vi.fn();
     render(<OnboardingNotice onContinue={onContinue} />);
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
-    expect(onContinue).toHaveBeenCalledWith(false);
+    expect(onContinue).toHaveBeenCalledWith(true);
   });
 
-  it("calls onContinue(true) when 'don't show again' is checked", () => {
+  it("calls onContinue(false) when the 'don't show again' checkbox is unchecked", () => {
     const onContinue = vi.fn();
     render(<OnboardingNotice onContinue={onContinue} />);
     fireEvent.click(screen.getByRole("checkbox", { name: /ne plus afficher/i }));
     fireEvent.click(screen.getByRole("button", { name: /continuer/i }));
-    expect(onContinue).toHaveBeenCalledWith(true);
+    expect(onContinue).toHaveBeenCalledWith(false);
   });
 });
