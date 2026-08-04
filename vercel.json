@@ -3,7 +3,7 @@
   "installCommand": "npm install",
   "outputDirectory": "client/dist",
   "rewrites": [
-    { "source": "/api/socket-io/:path*", "destination": "/api/socket-io" },
+    { "source": "/api/socket-io(/.*)?", "destination": "/api/socket-io" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "functions": {
