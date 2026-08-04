@@ -24,7 +24,15 @@ function RoomQrCode({ roomCode }: RoomQrCodeProps) {
   }, [roomCode]);
 
   if (!dataUrl) return null;
-  return <img src={dataUrl} alt={`QR code pour rejoindre la room ${roomCode}`} />;
+
+  // The frame is a real sheet of light, not a styled div: a QR is dark
+  // modules on a light field, and on this app's ink ground it simply will
+  // not scan without one.
+  return (
+    <div className="qr">
+      <img src={dataUrl} alt={`QR code pour rejoindre la room ${roomCode}`} />
+    </div>
+  );
 }
 
 export default RoomQrCode;

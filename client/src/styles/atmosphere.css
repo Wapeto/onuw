@@ -1,0 +1,214 @@
+/*
+ * The atmosphere layer: moon, stars, vignette, grain.
+ *
+ * Fixed behind every screen and driven entirely by `data-phase` on .screen,
+ * so moving between lobby → night → day → vote → reveal re-lights the room
+ * without a single extra element. This is what stops the app reading as
+ * "dark-mode SaaS" and starts it reading as a place.
+ */
+
+.atmos {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* Phase defaults; each [data-phase] block below re-lights these. */
+  --moon-size: 22rem;
+  --moon-x: 78%;
+  --moon-y: -6rem;
+  --moon-core: var(--moon-hot);
+  --moon-edge: var(--moon);
+  --moon-alpha: 0.16;
+  --sky-tint: rgb(27 36 56 / 55%);
+  transition: opacity 600ms var(--ease-soft);
+}
+
+/* Sky wash: a single soft gradient that lifts the horizon so the ground
+   isn't a flat field of one ink value. */
+.atmos__sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      120% 80% at var(--moon-x) 0%,
+      var(--sky-tint) 0%,
+      transparent 62%
+    ),
+    linear-gradient(180deg, var(--ink-850) 0%, var(--ink-900) 55%);
+  transition: background 700ms var(--ease-soft);
+}
+
+/* The moon itself: a hard-edged disc (the woodcut part) wrapped in a wide
+   bloom (the moonlight part). */
+.atmos__moon {
+  position: absolute;
+  top: var(--moon-y);
+  left: var(--moon-x);
+  width: var(--moon-size);
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 50%;
+  /* The limb stays saturated instead of being mixed down into the ink:
+     blending amber toward near-black lands on olive, which read as a
+     smudge on the ground rather than as moonlight. The last two stops
+     feather the edge just enough that the disc doesn't draw a hard arc
+     across the content sitting in front of it. */
+  background: radial-gradient(
+    circle at 38% 34%,
+    var(--moon-core) 0%,
+    var(--moon-edge) 50%,
+    color-mix(in oklab, var(--moon-edge) 82%, #4a300a) 69%,
+    color-mix(in oklab, var(--moon-edge) 60%, transparent) 71.5%,
+    transparent 73.5%
+  );
+  opacity: var(--moon-alpha);
+  filter: blur(1.5px);
+  animation: moon-drift 90s var(--ease-soft) infinite alternate;
+  transition:
+    opacity 800ms var(--ease-soft),
+    width 800ms var(--ease-soft),
+    top 800ms var(--ease-soft);
+}
+
+/* Bloom is a separate, heavily blurred copy — one element can't be both
+   crisp-edged and glowing. */
+.atmos__moon::after {
+  content: '';
+  position: absolute;
+  inset: -55%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--moon-edge) 70%, transparent) 0%,
+    transparent 62%
+  );
+  opacity: 0.5;
+  filter: blur(40px);
+}
+
+/* Stars: three tiled radial-gradient fields at different scales so the
+   pattern never visibly repeats on a phone. */
+.atmos__stars {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(1.5px 1.5px at 18% 22%, var(--bone-2) 50%, transparent 51%),
+    radial-gradient(1px 1px at 62% 12%, var(--bone-3) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 87% 34%, var(--bone-2) 50%, transparent 51%),
+    radial-gradient(1px 1px at 33% 48%, var(--bone-3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 63%, var(--bone-3) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 72% 71%, var(--bone-2) 50%, transparent 51%);
+  background-size:
+    140% 140%,
+    100% 100%,
+    180% 180%,
+    120% 120%,
+    160% 160%,
+    130% 130%;
+  animation: star-breathe 12s ease-in-out infinite alternate;
+}
+
+/* Vignette pulls the eye to the centre of the phone and hides the seams
+   where the sky gradient meets the viewport edge. */
+.atmos__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    100% 70% at 50% 42%,
+    transparent 30%,
+    rgb(3 4 8 / 72%) 100%
+  );
+}
+
+/* Film grain. Without it the large flat gradients band badly on OLED
+   phones; with it the whole thing reads as printed paper. */
+.atmos__grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.28;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-shift 700ms steps(4) infinite;
+}
+
+/* --- Phase lighting ---------------------------------------------------- */
+
+/* Lobby / setup: the moon is high and friendly, the room is still lit. */
+.screen[data-phase='lobby'] .atmos {
+  --moon-alpha: 0.22;
+  --sky-tint: rgb(27 36 56 / 70%);
+}
+
+/* Night: the moon swells and drops, the sky goes cold and nearly out. This
+   is the darkest the app ever gets — screens are being read under a table. */
+.screen[data-phase='night'] .atmos {
+  --moon-size: 30rem;
+  --moon-x: 50%;
+  --moon-y: -9rem;
+  --moon-alpha: 0.12;
+  --sky-tint: rgb(19 26 43 / 60%);
+}
+
+/* Day: everything warms and rises — the amber becomes daylight rather than
+   moonlight, and the vignette lifts. */
+.screen[data-phase='day'] .atmos {
+  --moon-size: 26rem;
+  --moon-x: 50%;
+  /* Pushed further off-screen than the night moon: at day brightness a
+     fully visible disc sitting behind the countdown competes with it. */
+  --moon-y: -13rem;
+  --moon-core: #fff0d0;
+  --moon-edge: var(--moon);
+  --moon-alpha: 0.2;
+  --sky-tint: rgb(88 62 38 / 42%);
+}
+
+.screen[data-phase='day'] .atmos__vignette {
+  background: radial-gradient(
+    110% 75% at 50% 30%,
+    transparent 38%,
+    rgb(3 4 8 / 62%) 100%
+  );
+}
+
+/* Vote: the moon goes blood and starts a slow heartbeat. Nothing else
+   changes — the colour shift alone is enough to change the mood. */
+.screen[data-phase='vote'] .atmos {
+  --moon-size: 27rem;
+  --moon-x: 50%;
+  --moon-y: -8rem;
+  --moon-core: #ff9b9f;
+  --moon-edge: var(--blood-deep);
+  --moon-alpha: 0.26;
+  --sky-tint: rgb(58 20 26 / 52%);
+}
+
+.screen[data-phase='vote'] .atmos__moon {
+  animation:
+    moon-drift 90s var(--ease-soft) infinite alternate,
+    moon-pulse 3.4s var(--ease-soft) infinite;
+}
+
+/* Reveal: full moon, wide open, brightest state in the app. */
+.screen[data-phase='reveal'] .atmos {
+  --moon-size: 34rem;
+  --moon-x: 50%;
+  --moon-y: -11rem;
+  --moon-alpha: 0.28;
+  --sky-tint: rgb(34 44 68 / 70%);
+}
+
+/* Team tinting on the reveal — the room takes the colour of who won. */
+.screen[data-phase='reveal'][data-team='werewolf'] .atmos {
+  --moon-core: #ff9b9f;
+  --moon-edge: var(--blood-deep);
+  --sky-tint: rgb(58 20 26 / 55%);
+}
+
+.screen[data-phase='reveal'][data-team='tanner'] .atmos {
+  --moon-core: #ffd0a0;
+  --moon-edge: var(--ochre);
+  --sky-tint: rgb(62 42 22 / 55%);
+}

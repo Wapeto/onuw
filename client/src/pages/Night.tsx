@@ -5,6 +5,8 @@ import type { NightTickId } from "@onuw/shared";
 import { useRoomSocket } from "../hooks/useRoomSocket";
 import { useFullscreen } from "../hooks/useFullscreen";
 import DummyScreen from "../components/night/DummyScreen";
+import Screen from "../components/ui/Screen";
+import Waiting from "../components/ui/Waiting";
 import type { RoleScreenProps } from "../components/night/roleScreenTypes";
 import WerewolfScreen from "../components/night/roles/WerewolfScreen";
 import MinionScreen from "../components/night/roles/MinionScreen";
@@ -42,23 +44,31 @@ function Night() {
     }
   }, [daySession, routeRoomCode, navigate]);
 
-  if (nightEnded) return <p>La nuit est terminée.</p>;
-  if (nightPaused) return <p>La partie est en pause…</p>;
-  if (!currentTick) return <p>En attente du début de la nuit…</p>;
-
-  if (!currentTick.active) return <DummyScreen tickId={currentTick.tickId} />;
+  if (nightEnded) return <Waiting phase="night">La nuit est terminée.</Waiting>;
+  if (nightPaused) return <Waiting phase="night">La partie est en pause…</Waiting>;
+  if (!currentTick) return <Waiting phase="night">En attente du début de la nuit…</Waiting>;
 
   const RoleScreen = ROLE_SCREENS[currentTick.tickId];
   const result = actionResult?.tickId === currentTick.tickId ? actionResult.result : null;
 
+  // Both branches share one shell so the ground, the moon and the vertical
+  // centring never shift between a tick where you act and a tick where you
+  // don't — a visible layout change between the two would be a tell anyone
+  // glancing across the table could read.
   return (
-    <RoleScreen
-      playerId={playerId}
-      players={players}
-      result={result as never}
-      onSubmit={(params) => submitNightAction(currentTick.tickId, params)}
-      onContinue={() => {}}
-    />
+    <Screen phase="night" align="center">
+      {currentTick.active ? (
+        <RoleScreen
+          playerId={playerId}
+          players={players}
+          result={result as never}
+          onSubmit={(params) => submitNightAction(currentTick.tickId, params)}
+          onContinue={() => {}}
+        />
+      ) : (
+        <DummyScreen tickId={currentTick.tickId} />
+      )}
+    </Screen>
   );
 }
 

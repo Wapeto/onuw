@@ -1,0 +1,157 @@
+/* Keyframes + the staggered entrance system + reduced-motion opt-out. */
+
+@keyframes moon-drift {
+  from {
+    translate: -50% 0;
+  }
+  to {
+    translate: -46% 1.5rem;
+  }
+}
+
+@keyframes moon-pulse {
+  0%,
+  100% {
+    opacity: var(--moon-alpha);
+  }
+  50% {
+    opacity: calc(var(--moon-alpha) * 1.7);
+  }
+}
+
+@keyframes star-breathe {
+  from {
+    opacity: 0.32;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+/* Jitters the grain tile so the noise shimmers like film rather than
+   sitting there as a static texture. */
+@keyframes grain-shift {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-2%, 1%);
+  }
+  50% {
+    transform: translate(1%, -2%);
+  }
+  75% {
+    transform: translate(-1%, -1%);
+  }
+  100% {
+    transform: translate(2%, 1%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes unveil {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateX(38deg) scale(0.94);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(900px) rotateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes sigil-in {
+  from {
+    opacity: 0;
+    rotate: -25deg;
+    scale: 0.7;
+  }
+  to {
+    opacity: 1;
+    rotate: 0deg;
+    scale: 1;
+  }
+}
+
+@keyframes heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  12% {
+    transform: scale(1.045);
+  }
+  24% {
+    transform: scale(1);
+  }
+  36% {
+    transform: scale(1.03);
+  }
+  48% {
+    transform: scale(1);
+  }
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(220%);
+  }
+}
+
+/*
+ * Staggered page entrance. Direct children of .stagger fade up in sequence.
+ * One well-orchestrated load beats a dozen scattered micro-interactions —
+ * and because every screen in this app is a full-page swap driven by the
+ * server clock, the entrance IS the transition between game beats.
+ */
+.stagger > * {
+  animation: rise 620ms var(--ease-out) backwards;
+}
+
+.stagger > *:nth-child(1) {
+  animation-delay: 60ms;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 130ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 200ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 270ms;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 340ms;
+}
+.stagger > *:nth-child(n + 6) {
+  animation-delay: 400ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Blanket kill: every animation in this app is decorative. Nothing here
+     communicates state that isn't also carried by colour, text or layout,
+     so there's nothing to preserve a reduced fallback for. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

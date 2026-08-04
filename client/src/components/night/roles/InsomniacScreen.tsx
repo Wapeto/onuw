@@ -9,12 +9,16 @@ function InsomniacScreen({ result, onSubmit, onContinue }: RoleScreenProps<{ rol
     onSubmit({});
   }, []);
 
-  if (!result) return <p>L'Insomniaque regarde sa carte…</p>;
+  if (!result) return <p className="waiting">L'Insomniaque regarde sa carte…</p>;
 
+  // Deliberately no note here: any extra line risks repeating the role name
+  // and burying the one word this screen exists to deliver.
   return (
-    <RevealScreen onContinue={onContinue}>
-      <p>Ta carte actuelle est : {roleLabel(result.roleId)}</p>
-    </RevealScreen>
+    <RevealScreen
+      label="Ta carte, en fin de nuit"
+      value={roleLabel(result.roleId)}
+      onContinue={onContinue}
+    />
   );
 }
 

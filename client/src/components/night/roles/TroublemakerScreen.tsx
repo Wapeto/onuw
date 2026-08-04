@@ -1,5 +1,7 @@
 import { useState } from "react";
 import RevealScreen from "../RevealScreen";
+import PlayerChoices from "../PlayerChoices";
+import NightPrompt from "../../ui/NightPrompt";
 import type { RoleScreenProps } from "../roleScreenTypes";
 
 function TroublemakerScreen({
@@ -13,13 +15,14 @@ function TroublemakerScreen({
 
   if (result) {
     return (
-      <RevealScreen onContinue={onContinue}>
-        <p>Les deux cartes ont été échangées.</p>
-      </RevealScreen>
+      <RevealScreen
+        label="Semeuse de troubles"
+        value="Les deux cartes ont été échangées."
+        note="Ni l'un ni l'autre ne le sait. Toi non plus, tu n'as rien vu."
+        onContinue={onContinue}
+      />
     );
   }
-
-  const candidates = players.filter((p) => p.id !== playerId);
 
   function pick(id: string) {
     if (!firstPick) {
@@ -29,17 +32,26 @@ function TroublemakerScreen({
     onSubmit({ targetAId: firstPick, targetBId: id });
   }
 
+  const firstName = players.find((p) => p.id === firstPick)?.pseudo;
+
   return (
-    <div>
-      <p>Choisis deux joueurs dont tu vas échanger les cartes, sans les regarder :</p>
-      {candidates
-        .filter((p) => p.id !== firstPick)
-        .map((p) => (
-          <button key={p.id} onClick={() => pick(p.id)}>
-            {p.pseudo}
-          </button>
-        ))}
-    </div>
+    <NightPrompt
+      eyebrow="Semeuse de troubles"
+      title="Choisis deux joueurs dont tu vas échanger les cartes, sans les regarder :"
+    >
+      {/* The first pick stays visible and locked rather than vanishing from
+          the grid: watching your own choice disappear reads as a bug, and
+          the remaining names shifting under a thumb causes mis-taps. */}
+      <PlayerChoices
+        players={players}
+        excludeId={playerId}
+        pickedIds={firstPick ? [firstPick] : []}
+        onPick={pick}
+      />
+      <p className="hint">
+        {firstPick ? `${firstName} choisi · désigne le second` : "Désigne le premier joueur"}
+      </p>
+    </NightPrompt>
   );
 }
 

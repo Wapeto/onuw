@@ -2,7 +2,10 @@ import { useState, type ReactElement } from "react";
 import type { RoleId } from "@onuw/shared";
 import { roleLabel } from "../../../roleLabels";
 import RevealScreen from "../RevealScreen";
+import PlayerChoices from "../PlayerChoices";
+import NightPrompt from "../../ui/NightPrompt";
 import type { RoleScreenProps } from "../roleScreenTypes";
+import { ChainedRoleContext } from "../chainContext";
 import SeerScreen from "./SeerScreen";
 import RobberScreen from "./RobberScreen";
 import TroublemakerScreen from "./TroublemakerScreen";
@@ -24,48 +27,52 @@ function DoppelgangerScreen({ playerId, players, result, onSubmit, onContinue }:
 
   if (!result) {
     return (
-      <div>
-        <p>Choisis un joueur dont tu vas copier le rôle :</p>
-        {players
-          .filter((p) => p.id !== playerId)
-          .map((p) => (
-            <button
-              key={p.id}
-              onClick={() => {
-                setTargetPlayerId(p.id);
-                onSubmit({ targetPlayerId: p.id });
-              }}
-            >
-              {p.pseudo}
-            </button>
-          ))}
-      </div>
+      <NightPrompt eyebrow="Le Double" title="Choisis un joueur dont tu vas copier le rôle :">
+        <PlayerChoices
+          players={players}
+          excludeId={playerId}
+          pickedIds={targetPlayerId ? [targetPlayerId] : []}
+          onPick={(id) => {
+            setTargetPlayerId(id);
+            onSubmit({ targetPlayerId: id });
+          }}
+        />
+      </NightPrompt>
     );
   }
 
   const ChainScreen = CHAIN_SCREENS[result.copiedRoleId];
   if (ChainScreen) {
+    // Two things happen in one tick here — you learn what you copied, then
+    // you immediately play it. The banner keeps the copied role on screen
+    // above the sub-action so the player never loses track of which role's
+    // rules they're currently following.
     return (
-      <div>
-        <p>
+      <div className="stack">
+        <p className="copied">
           Tu as copié : {roleLabel(result.copiedRoleId)}.
           {!result.chained && " Fais son action :"}
         </p>
-        <ChainScreen
-          playerId={playerId}
-          players={players}
-          result={(result.chained ?? null) as never}
-          onSubmit={(subParams) => onSubmit({ targetPlayerId, subParams })}
-          onContinue={onContinue}
-        />
+        <ChainedRoleContext.Provider value={true}>
+          <ChainScreen
+            playerId={playerId}
+            players={players}
+            result={(result.chained ?? null) as never}
+            onSubmit={(subParams) => onSubmit({ targetPlayerId, subParams })}
+            onContinue={onContinue}
+          />
+        </ChainedRoleContext.Provider>
       </div>
     );
   }
 
   return (
-    <RevealScreen onContinue={onContinue}>
-      <p>Tu as copié : {roleLabel(result.copiedRoleId)}.</p>
-    </RevealScreen>
+    <RevealScreen
+      label="Tu as copié"
+      value={roleLabel(result.copiedRoleId)}
+      note="Tu joues ce rôle pour le reste de la partie, sans action cette nuit."
+      onContinue={onContinue}
+    />
   );
 }
 

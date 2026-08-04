@@ -1,0 +1,91 @@
+/*
+ * The day-phase countdown.
+ *
+ * This is the only screen everyone looks at simultaneously, usually propped
+ * on a table mid-argument, so it's built to be legible across a room: one
+ * huge numeral inside a ring that visibly drains. Urgency is carried by
+ * colour AND by the ring AND by the pulse — three redundant channels,
+ * because someone will be looking at it from an angle across a dark room.
+ */
+
+.timer {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(17rem, 72vw);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  --timer-color: var(--moon);
+}
+
+/* The drain ring: a conic gradient masked into an annulus. --progress is
+   the fraction of time REMAINING (1 → 0), set inline from the countdown. */
+.timer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 180deg,
+    var(--timer-color) calc(var(--progress, 1) * 360deg),
+    rgb(236 227 210 / 7%) 0
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  transition: background 900ms linear;
+}
+
+/* Soft bloom behind the ring so it reads as lit rather than drawn. */
+.timer::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--timer-color) 22%, transparent) 0%,
+    transparent 68%
+  );
+  filter: blur(14px);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.timer__value {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  /* Not a fluid clamp: this needs to be as big as the ring allows on every
+     device, so it scales off the ring's own width. */
+  font-size: min(5.5rem, 24vw);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--timer-color);
+  text-shadow: 0 0 40px color-mix(in oklab, var(--timer-color) 40%, transparent);
+  transition: color 600ms var(--ease-soft);
+}
+
+/* Last minute: the room warms up. */
+.timer[data-urgency='warn'] {
+  --timer-color: var(--ochre);
+}
+
+/* Last 30 seconds: blood, and a heartbeat. */
+.timer[data-urgency='critical'] {
+  --timer-color: var(--blood);
+}
+
+.timer[data-urgency='critical'] .timer__value {
+  animation: heartbeat 1.6s var(--ease-soft) infinite;
+}
+
+.timer__caption {
+  margin-top: var(--space-5);
+  text-align: center;
+  color: var(--bone-3);
+  font-size: var(--step--1);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}

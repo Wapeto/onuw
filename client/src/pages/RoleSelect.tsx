@@ -5,6 +5,8 @@ import { ROLE_IDS, totalRoleCount, MIN_DAY_DURATION_MS, MAX_DAY_DURATION_MS } fr
 import { useRoomSocket } from "../hooks/useRoomSocket";
 import RoleRecap from "../components/RoleRecap";
 import OnboardingNotice from "../components/OnboardingNotice";
+import Screen from "../components/ui/Screen";
+import Waiting from "../components/ui/Waiting";
 import { isOnboardingDismissed, dismissOnboarding } from "../onboardingStorage";
 import { roleLabel } from "../roleLabels";
 
@@ -52,7 +54,7 @@ function RoleSelect() {
   }
 
   if (!roleSelection) {
-    return <p>Chargement de la configuration…</p>;
+    return <Waiting phase="lobby">Chargement de la configuration…</Waiting>;
   }
 
   const { mode, roles, valid } = roleSelection;
@@ -65,101 +67,180 @@ function RoleSelect() {
     setCustomRoles({ ...roles, [roleId]: Math.max(0, nextCount) });
   }
 
+  // Non-hosts can't change anything here, so they get a read-only summary
+  // instead of a wall of disabled controls.
+  const remaining = target - total;
+
   return (
-    <div>
-      <h1>Configuration des rôles — {routeRoomCode}</h1>
+    <Screen phase="lobby">
+      <header className="screen__head">
+        <p className="eyebrow">Room {routeRoomCode}</p>
+        <h1 className="display screen__title">Configuration des rôles</h1>
+        <p className="screen__lede">
+          {playerCount} joueurs · {target} cartes ({playerCount} distribuées, 3 au centre)
+        </p>
+      </header>
 
-      {isHost && (
-        <div>
-          {MODES.map((candidate) => (
-            <button
-              key={candidate.id}
-              onClick={() => setRoleMode(candidate.id)}
-              aria-pressed={mode === candidate.id}
-            >
-              {candidate.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="screen__body stagger">
+        {isHost && (
+          <div className="segmented" role="group" aria-label="Mode de jeu">
+            {MODES.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                className="btn"
+                onClick={() => setRoleMode(candidate.id)}
+                aria-pressed={mode === candidate.id}
+              >
+                {candidate.label}
+              </button>
+            ))}
+          </div>
+        )}
 
-      {isHost ? (
-        <div>
-          <label htmlFor="day-duration">Durée de la discussion (minutes)</label>
-          <input
-            id="day-duration"
-            type="number"
-            min={MIN_DAY_DURATION_MS / 60_000}
-            max={MAX_DAY_DURATION_MS / 60_000}
-            value={dayDurationMs / 60_000}
-            onChange={(e) => setDayDuration(Number(e.target.value) * 60_000)}
-          />
-        </div>
-      ) : (
-        <p>Durée de la discussion : {dayDurationMs / 60_000} min</p>
-      )}
+        {mode === "custom" && isHost && (
+          <div className="panel">
+            <p className="panel__title">Rôles en jeu</p>
+            <ul className="rolerows">
+              {EDITABLE_ROLE_IDS.map((id) => {
+                const count = roles[id] ?? 0;
+                const isMason = id === "mason";
+                const isWerewolf = id === "werewolf";
+                const cap = isWerewolf || isMason ? 2 : 1;
+                const atCap = count >= cap;
+                const insomniacBlocked =
+                  id === "insomniac" && count === 0 && (roles.robber ?? 0) === 0 && (roles.troublemaker ?? 0) === 0;
 
-      {mode === "custom" && isHost && (
-        <ul>
-          {EDITABLE_ROLE_IDS.map((id) => {
-            const count = roles[id] ?? 0;
-            const isMason = id === "mason";
-            const isWerewolf = id === "werewolf";
-            const cap = isWerewolf || isMason ? 2 : 1;
-            const atCap = count >= cap;
-            const insomniacBlocked =
-              id === "insomniac" && count === 0 && (roles.robber ?? 0) === 0 && (roles.troublemaker ?? 0) === 0;
-
-            return (
-              <li key={id}>
-                <span>{roleLabel(id)}</span>
-                <span>{count}</span>
-                <button
-                  aria-label="+"
-                  onClick={() => updateRole(id, isMason ? 2 : count + 1)}
-                  disabled={atCap || isFull || insomniacBlocked}
-                >
-                  +
-                </button>
-                <button aria-label="-" onClick={() => updateRole(id, isMason ? 0 : count - 1)} disabled={count === 0}>
-                  -
-                </button>
+                return (
+                  <li key={id} className="rolerow">
+                    <span className="rolerow__name">{roleLabel(id)}</span>
+                    <span className="rolerow__count" data-zero={count === 0}>
+                      {count}
+                    </span>
+                    <span className="stepper">
+                      <button
+                        type="button"
+                        className="btn"
+                        aria-label="-"
+                        onClick={() => updateRole(id, isMason ? 0 : count - 1)}
+                        disabled={count === 0}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        aria-label="+"
+                        onClick={() => updateRole(id, isMason ? 2 : count + 1)}
+                        disabled={atCap || isFull || insomniacBlocked}
+                      >
+                        +
+                      </button>
+                    </span>
+                  </li>
+                );
+              })}
+              <li className="rolerow">
+                <span className="rolerow__name">{roleLabel("villager")}</span>
+                <span className="rolerow__count" data-zero={(roles.villager ?? 0) === 0}>
+                  {roles.villager ?? 0}
+                </span>
+                <span className="stepper">
+                  <button
+                    type="button"
+                    className="btn"
+                    aria-label="-"
+                    onClick={() => updateRole("villager", (roles.villager ?? 0) - 1)}
+                    disabled={(roles.villager ?? 0) === 0}
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    aria-label="+"
+                    onClick={() => updateRole("villager", (roles.villager ?? 0) + 1)}
+                    disabled={isFull}
+                  >
+                    +
+                  </button>
+                </span>
               </li>
-            );
-          })}
-          <li>
-            <span>{roleLabel("villager")}</span>
-            <span>{roles.villager ?? 0}</span>
+            </ul>
+          </div>
+        )}
+
+        <div className="panel">
+          <div className="tally">
+            <span className="panel__title" style={{ marginBottom: 0 }}>
+              Sélection
+            </span>
+            <span className="tally__value" data-complete={total === target}>
+              {total} / {target}
+            </span>
+          </div>
+          <div className="meter">
+            <div
+              className="meter__fill"
+              style={{ width: `${Math.min((total / target) * 100, 100)}%` }}
+            />
+          </div>
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <RoleRecap roles={roles} />
+          </div>
+        </div>
+
+        <div className="panel">
+          <p className="panel__title">Durée de la discussion</p>
+          {isHost ? (
+            <div className="row">
+              <input
+                id="day-duration"
+                className="input input--number"
+                type="number"
+                inputMode="numeric"
+                aria-label="Durée de la discussion en minutes"
+                min={MIN_DAY_DURATION_MS / 60_000}
+                max={MAX_DAY_DURATION_MS / 60_000}
+                value={dayDurationMs / 60_000}
+                onChange={(e) => setDayDuration(Number(e.target.value) * 60_000)}
+              />
+              <label htmlFor="day-duration" className="muted">
+                minutes
+              </label>
+            </div>
+          ) : (
+            <p>{dayDurationMs / 60_000} min</p>
+          )}
+        </div>
+      </div>
+
+      <div className="screen__spacer" />
+
+      <footer className="screen__foot">
+        {isHost ? (
+          <>
             <button
-              aria-label="+"
-              onClick={() => updateRole("villager", (roles.villager ?? 0) + 1)}
-              disabled={isFull}
+              type="button"
+              className="btn btn--primary btn--block"
+              onClick={() => startGame()}
+              disabled={!valid}
             >
-              +
+              Lancer la partie
             </button>
-            <button
-              aria-label="-"
-              onClick={() => updateRole("villager", (roles.villager ?? 0) - 1)}
-              disabled={(roles.villager ?? 0) === 0}
-            >
-              -
-            </button>
-          </li>
-        </ul>
-      )}
-
-      <p>
-        {total} / {target} rôles sélectionnés
-      </p>
-
-      <RoleRecap roles={roles} />
-
-      {isHost && (
-        <button onClick={() => startGame()} disabled={!valid}>
-          Lancer la partie
-        </button>
-      )}
-    </div>
+            <p className="hint">
+              {valid
+                ? "La nuit commence dès que tu lances"
+                : remaining > 0
+                  ? `Ajoute encore ${remaining} carte${remaining > 1 ? "s" : ""}`
+                  : "Cette combinaison de rôles n'est pas jouable"}
+            </p>
+          </>
+        ) : (
+          <p className="hint">En attente de l'hôte…</p>
+        )}
+      </footer>
+    </Screen>
   );
 }
 

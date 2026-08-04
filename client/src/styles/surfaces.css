@@ -1,0 +1,358 @@
+/* Panels, chips, rosters, the room code, the QR frame, verdict rows. */
+
+.panel {
+  padding: var(--space-5);
+  background: linear-gradient(
+    170deg,
+    rgb(27 36 56 / 72%),
+    rgb(9 13 21 / 82%)
+  );
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lift);
+  backdrop-filter: blur(8px);
+}
+
+.panel__title {
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--bone-3);
+  margin-bottom: var(--space-4);
+}
+
+/* --- Room code --------------------------------------------------------- */
+
+/*
+ * The code is the single most-read string in the app — shouted across a
+ * table, typed by someone squinting at a phone. It gets hero treatment:
+ * mono, hugely tracked, with a hairline rule above and below so it reads as
+ * an inscription rather than a label.
+ */
+.roomcode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  border-block: 1px solid var(--line-strong);
+}
+
+.roomcode__label {
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bone-3);
+}
+
+.roomcode__value {
+  font-family: var(--font-mono);
+  font-size: var(--step-4);
+  font-weight: 600;
+  /* The trailing space compensates for the letter-spacing added after the
+     final glyph, which would otherwise push the string off-centre. */
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  color: var(--moon);
+  text-shadow: 0 0 28px rgb(242 199 107 / 35%);
+}
+
+/* --- QR ---------------------------------------------------------------- */
+
+/* QR codes are dark-on-white and simply will not scan on an ink ground, so
+   the frame is a genuine sheet of bone paper laid on the night. */
+.qr {
+  align-self: center;
+  padding: var(--space-3);
+  background: var(--bone);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-deep), 0 0 40px -12px rgb(242 199 107 / 30%);
+  rotate: -1.5deg;
+}
+
+.qr img {
+  width: 9.5rem;
+  height: 9.5rem;
+  mix-blend-mode: multiply;
+}
+
+/* --- Roster ------------------------------------------------------------ */
+
+.roster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.roster__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgb(19 26 43 / 60%);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  animation: rise 500ms var(--ease-out) backwards;
+}
+
+/* Same moon-phase avatar as the choice grid, so a player reads as the same
+   "token" in the lobby and in the vote. */
+.roster__row::before {
+  content: '';
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--moon);
+  opacity: 0.8;
+  box-shadow: inset calc(-0.47rem + (var(--i, 0) * 0.19rem)) 0 0 -0.07rem
+    var(--ink-800);
+}
+
+.roster__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.roster__host {
+  margin-left: auto;
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--moon);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--moon-line);
+  border-radius: var(--r-pill);
+}
+
+.roster__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--bone-3);
+  font-size: var(--step--1);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* --- Chips (role recap) ------------------------------------------------ */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--bone-2);
+  background: rgb(236 227 210 / 5%);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+
+/* --- Role count rows (custom mode) ------------------------------------- */
+
+.rolerows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rolerow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--r-md);
+  transition: background-color 200ms var(--ease-soft);
+}
+
+.rolerow:hover {
+  background: rgb(236 227 210 / 4%);
+}
+
+.rolerow__name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.rolerow__count {
+  min-width: 1.5rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--step-0);
+  color: var(--moon);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Zero counts recede so the host's eye lands on what's actually in play. */
+.rolerow__count[data-zero='true'] {
+  color: var(--bone-3);
+  opacity: 0.5;
+}
+
+/* --- Progress / totals -------------------------------------------------- */
+
+.tally {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tally__value {
+  font-family: var(--font-mono);
+  font-size: var(--step-1);
+  font-variant-numeric: tabular-nums;
+  color: var(--moon);
+}
+
+.tally__value[data-complete='false'] {
+  color: var(--bone-2);
+}
+
+.meter {
+  height: 3px;
+  margin-top: var(--space-3);
+  background: rgb(236 227 210 / 8%);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.meter__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--moon);
+  transition: width 400ms var(--ease-out);
+}
+
+/* --- Verdict rows (reveal) --------------------------------------------- */
+
+.verdicts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.verdict {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgb(19 26 43 / 55%);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--r-md);
+  animation: rise 500ms var(--ease-out) backwards;
+}
+
+.verdict[data-eliminated='true'] {
+  border-left-color: var(--blood);
+}
+
+.verdict[data-winner='true'] {
+  border-left-color: var(--moon);
+  background: rgb(242 199 107 / 7%);
+}
+
+.verdict__name {
+  font-size: var(--step-1);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.verdict__votes {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--bone-3);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  align-self: center;
+}
+
+.verdict__roles {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--step--1);
+}
+
+.verdict__role {
+  color: var(--bone-2);
+}
+
+/* A card that got swapped in the night: the role they were dealt is struck
+   out, so the eye lands on what they actually ended up as. */
+.verdict__role[data-swapped='true'] {
+  color: var(--bone-3);
+  text-decoration: line-through;
+  text-decoration-color: rgb(236 227 210 / 35%);
+}
+
+/* The role a player ended the night with, when it differs from their
+   original — the swap is the whole point of the game, so it's the one
+   coloured thing in the row. */
+.verdict__role--final {
+  color: var(--moon);
+  font-weight: 600;
+}
+
+.verdict__arrow {
+  color: var(--bone-3);
+}
+
+.verdict__tag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.125rem var(--space-2);
+  border-radius: var(--r-pill);
+  color: var(--blood);
+  border: 1px solid rgb(224 91 98 / 40%);
+}
+
+.verdict__tag--winner {
+  color: var(--moon);
+  border-color: var(--moon-line);
+}
+
+/* --- Banners ----------------------------------------------------------- */
+
+.banner {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--step-0);
+  border-radius: var(--r-md);
+  border: 1px solid rgb(224 91 98 / 35%);
+  background: rgb(163 36 43 / 15%);
+  color: var(--blood);
+}
+
+.outcome {
+  font-family: var(--font-display);
+  font-size: var(--step-4);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--outcome-color, var(--moon));
+  text-shadow: 0 0 44px color-mix(in oklab, var(--outcome-color, var(--moon)) 45%, transparent);
+}
+
+.outcome[data-team='village'] {
+  --outcome-color: var(--sage);
+}
+
+.outcome[data-team='werewolf'] {
+  --outcome-color: var(--blood);
+}
+
+.outcome[data-team='tanner'] {
+  --outcome-color: var(--ochre);
+}

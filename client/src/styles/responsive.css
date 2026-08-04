@@ -1,0 +1,240 @@
+/*
+ * Mobile-first adaptation layer.
+ *
+ * This app is played on phones, in hand, almost never on a desktop. The
+ * shapes that actually have to work are:
+ *   - 360×640  small Android / Z Flip cover
+ *   - 375×667  iPhone SE
+ *   - 393×852  iPhone 15/16
+ *   - 412×915  S24 Ultra
+ *   - 412×1004 Z Flip 5 unfolded (22:9 — very tall)
+ *   - 440×956  iPhone Pro Max
+ *   - any of the above rotated, plus foldables opened to a near-square
+ *
+ * Everything below is keyed off width AND height, because a 22:9 flip and a
+ * landscape SE have nothing in common except that both are "a phone".
+ */
+
+/* Hard guarantee: nothing in this app may ever scroll sideways. Glows,
+   rotated QR frames and the oversized moon all bleed past the viewport by
+   design and would otherwise widen the document. */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* Safe areas on every edge, not just top/bottom — a rotated phone puts the
+   notch on the left or right, and the Pro Max curves at the corners. */
+.screen__inner {
+  padding-inline: max(var(--space-5), env(safe-area-inset-left)) max(
+      var(--space-5),
+      env(safe-area-inset-right)
+    );
+}
+
+/* --- Narrow: 360px-class phones and flip cover screens ------------------ */
+
+@media (max-width: 23.4375rem) {
+  :root {
+    /* A 7.5rem minimum keeps the player grid at two columns at 360px
+       instead of collapsing to a single tall column. */
+    --space-5: 1.125rem;
+    --space-6: 1.5rem;
+    --space-7: 2rem;
+  }
+
+  .screen__title--hero {
+    font-size: 2.5rem;
+  }
+
+  .roomcode__value {
+    font-size: 2rem;
+    letter-spacing: 0.18em;
+    text-indent: 0.18em;
+  }
+
+  .choices {
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: var(--space-2);
+  }
+
+  .choice {
+    min-height: 6.5rem;
+    font-size: var(--step-0);
+  }
+
+  .qr img {
+    width: 8rem;
+    height: 8rem;
+  }
+}
+
+/* --- Short: landscape phones, flip cover screens, small windows --------- */
+
+/*
+ * Under ~700px of height the generous vertical rhythm stops being generous
+ * and starts pushing the primary action below the fold. Everything vertical
+ * compresses; nothing horizontal changes.
+ */
+@media (max-height: 43.75rem) {
+  :root {
+    --space-6: 1.25rem;
+    --space-7: 1.5rem;
+    --space-8: 2rem;
+  }
+
+  .screen__inner {
+    gap: var(--space-4);
+    padding-block: calc(var(--space-4) + env(safe-area-inset-top))
+      calc(var(--space-4) + env(safe-area-inset-bottom));
+  }
+
+  /* Sized so the whole join screen — hero, pseudo, code panel, primary
+     action — still clears the fold on a 360×640 Android, the smallest
+     shape this game realistically runs on. */
+  .screen__title--hero {
+    font-size: clamp(2rem, 7.5vw, 2.75rem);
+  }
+
+  .panel {
+    padding: var(--space-4);
+  }
+
+  .panel__title {
+    margin-bottom: var(--space-3);
+  }
+
+  .waiting {
+    min-height: 40svh;
+  }
+
+  .unveil {
+    padding: var(--space-5) var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .unveil__sigil {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+@media (max-height: 35rem) {
+  .screen__inner {
+    padding-block: calc(var(--space-4) + env(safe-area-inset-top))
+      calc(var(--space-4) + env(safe-area-inset-bottom));
+    gap: var(--space-4);
+  }
+
+  .waiting {
+    min-height: 0;
+    font-size: var(--step-1);
+  }
+
+  /* The moon is atmosphere, not information — on a cramped viewport it
+     gives up its size before any content does. */
+  .screen .atmos {
+    --moon-size: 16rem;
+  }
+
+  .choice {
+    min-height: 5rem;
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .choice::before {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+/* Landscape phones: the content column is the constraint, so cap it and
+   keep the primary action reachable without scrolling. */
+@media (orientation: landscape) and (max-height: 30rem) {
+  .screen__inner {
+    max-width: 34rem;
+  }
+
+  .screen__title,
+  .screen__title--hero {
+    font-size: clamp(1.75rem, 6vh, 2.5rem);
+  }
+
+  .screen__title--hero em {
+    display: inline;
+  }
+
+  .choices {
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+}
+
+/* The timer is the one element sized off the viewport's *shorter* axis, so
+   it never overflows a landscape or flip-cover screen. */
+.timer {
+  width: min(17rem, 72vw, 46svh);
+}
+
+/* --- Tall: 20:9 and 22:9 flagships -------------------------------------- */
+
+/*
+ * On a Z Flip 5 (22:9) a top-anchored column leaves a third of the screen
+ * empty below the fold. Content centres instead, and the head gets a little
+ * more air above it so the composition sits on the optical centre rather
+ * than sliding to the top edge.
+ */
+@media (max-aspect-ratio: 9 / 19.5) and (min-height: 45rem) {
+  .screen__inner {
+    justify-content: center;
+    padding-block: calc(var(--space-8) + env(safe-area-inset-top))
+      calc(var(--space-7) + env(safe-area-inset-bottom));
+  }
+
+  /* The spacer would fight the centring and re-pin the footer to the
+     bottom edge, which is exactly what we're avoiding here. */
+  .screen__spacer {
+    flex: 0 0 var(--space-4);
+  }
+}
+
+/* --- Wide: unfolded foldables, tablets, desktop ------------------------- */
+
+@media (min-width: 30rem) {
+  :root {
+    --choice-min: 9rem;
+  }
+
+  .choices {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  }
+
+  .qr img {
+    width: 11rem;
+    height: 11rem;
+  }
+}
+
+/* Beyond a phone the column simply stops growing — a 10-name vote grid
+   stretched across a laptop would be worse, not better. Instead the ground
+   around it stays dark and the card reads as a held object. */
+@media (min-width: 48rem) {
+  :root {
+    --measure: 34rem;
+  }
+
+  .screen__inner {
+    padding-block: var(--space-8);
+  }
+}
+
+/* Pointer-based devices get hover affordances; touch devices must not,
+   or the :hover state sticks after a tap on iOS. */
+@media (hover: none) {
+  .choice:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .rolerow:hover {
+    background: transparent;
+  }
+}

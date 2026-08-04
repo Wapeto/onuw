@@ -1,0 +1,165 @@
+/* The screen shell and its vertical rhythm. */
+
+.screen {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+.screen__inner {
+  flex: 1;
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  /* env() keeps the primary action clear of the iOS home indicator — this
+     app runs fullscreen/standalone, so there's no browser chrome to do it. */
+  padding:
+    calc(var(--space-7) + env(safe-area-inset-top)) var(--space-5)
+    calc(var(--space-6) + env(safe-area-inset-bottom));
+}
+
+/* Night screens centre their content vertically: there's only ever one
+   decision on screen and it should sit under the thumb, not at the top. */
+.screen[data-align='center'] .screen__inner {
+  justify-content: center;
+}
+
+.screen__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.screen__title {
+  font-size: var(--step-4);
+}
+
+/* The hero treatment, used once — on the join screen. Bodoni at this size
+   is the whole identity, so it gets the full stack: oversized, tight,
+   with the middle word set in italic to break the block. */
+.screen__title--hero {
+  font-size: var(--step-5);
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+}
+
+.screen__title--hero em {
+  display: block;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--moon);
+}
+
+.screen__lede {
+  color: var(--bone-2);
+  font-size: var(--step-1);
+  max-width: 34ch;
+  text-wrap: pretty;
+}
+
+.screen__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Pushes the footer to the bottom on short screens without forcing it there
+   on tall ones. */
+.screen__spacer {
+  flex: 1;
+  min-height: var(--space-4);
+}
+
+.screen__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- Generic stacks ---------------------------------------------------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stack--tight {
+  gap: var(--space-2);
+}
+
+.stack--loose {
+  gap: var(--space-6);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Sub-action caption: the line under a primary button that says what will
+   happen, or why it's disabled. */
+.hint {
+  text-align: center;
+  font-size: var(--step--1);
+  color: var(--bone-3);
+  text-wrap: balance;
+}
+
+/* --- Night instruction ------------------------------------------------- */
+
+/*
+ * The one line telling a player what to do right now. Set in the display
+ * face at headline size because it is read in about half a second, in the
+ * dark, usually with the phone tilted away from a neighbour — it has to win
+ * against every other thing on the screen.
+ */
+.prompt {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--step-3);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--bone);
+  text-wrap: balance;
+}
+
+/* --- Centred waiting states -------------------------------------------- */
+
+/* Used for every "en attente…" / "chargement…" beat. These are frequent and
+   short-lived, so they get a real treatment rather than a bare <p>. */
+.waiting {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 60svh;
+  text-align: center;
+  color: var(--bone-2);
+  font-size: var(--step-2);
+  text-wrap: balance;
+}
+
+/* Three drifting dots, drawn with a single element. */
+.waiting::before {
+  content: '';
+  width: 3.5rem;
+  height: 0.375rem;
+  border-radius: var(--r-pill);
+  background:
+    radial-gradient(circle at 12% 50%, var(--moon) 45%, transparent 46%),
+    radial-gradient(circle at 50% 50%, var(--moon) 45%, transparent 46%),
+    radial-gradient(circle at 88% 50%, var(--moon) 45%, transparent 46%);
+  opacity: 0.75;
+  animation: star-breathe 1.6s ease-in-out infinite alternate;
+}

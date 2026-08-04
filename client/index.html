@@ -4,8 +4,30 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#863bff" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#06080d" />
+    <!--
+      viewport-fit=cover is what lets the ink ground run under the notch and
+      the home indicator; the layout pays it back with env(safe-area-inset-*)
+      padding. Without it the app renders in a letterboxed white-edged box on
+      every recent iPhone.
+      user-scalable=no is deliberate and narrow in scope: this is a
+      tap-only game with no body copy to zoom into, and a stray pinch or a
+      double-tap mid-vote leaves a player zoomed in on a corner of a grid
+      with seconds on the clock. Text is already set well above minimum
+      sizes and honours the OS text-size setting.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ONUW" />
+    <meta
+      name="description"
+      content="Jouez à One Night Ultimate Werewolf en multi-device, sans app à installer sur chaque téléphone."
+    />
     <title>One Night Ultimate Werewolf</title>
   </head>
   <body>

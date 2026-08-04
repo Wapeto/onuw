@@ -1,0 +1,172 @@
+/*
+ * The unveil card — the emotional centre of the app.
+ *
+ * Every secret a player learns at night (your stolen card, your fellow
+ * wolves, the Seer's peek) arrives on this card. It's the moment the whole
+ * game hangs on, played on a phone tilted away from the table, so it gets
+ * the most deliberate treatment in the codebase: an engraved sigil, a
+ * letterpress bevel, and a single tilt-into-place animation.
+ */
+
+.unveil {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-5);
+  text-align: center;
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      rgb(242 199 107 / 10%) 0%,
+      transparent 60%
+    ),
+    linear-gradient(168deg, rgb(31 41 63 / 95%), rgb(9 13 21 / 96%));
+  border: 1px solid var(--moon-line);
+  border-radius: var(--r-xl);
+  box-shadow:
+    0 1px 0 rgb(242 199 107 / 18%) inset,
+    var(--shadow-deep),
+    0 0 60px -22px rgb(242 199 107 / 55%);
+  animation: unveil 760ms var(--ease-out) backwards;
+  transform-origin: 50% 100%;
+}
+
+/* Hairline inner rule: the engraved plate edge. */
+.unveil::before {
+  content: '';
+  position: absolute;
+  inset: var(--space-2);
+  border: 1px solid rgb(242 199 107 / 14%);
+  border-radius: calc(var(--r-xl) - var(--space-2));
+  pointer-events: none;
+}
+
+/* The sigil: a moon disc with a crescent bitten out of it, drawn with two
+   gradients — no asset, no icon font. */
+.unveil__sigil {
+  position: relative;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 36% 32%,
+    var(--moon-hot) 0%,
+    var(--moon) 55%,
+    color-mix(in oklab, var(--moon) 60%, var(--ink-900)) 100%
+  );
+  box-shadow:
+    inset -0.7rem -0.1rem 0 -0.25rem var(--ink-850),
+    0 0 36px -6px rgb(242 199 107 / 70%);
+  animation: sigil-in 700ms var(--ease-out) 120ms backwards;
+}
+
+.unveil__label {
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone-3);
+}
+
+/* The payload: whatever the player actually learned. Display face, big,
+   because it's frequently read in half a second under a table. */
+.unveil__value {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--step-3);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  color: var(--moon-hot);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.unveil__note {
+  font-size: var(--step-0);
+  color: var(--bone-2);
+  text-wrap: pretty;
+}
+
+/* Danger variant — used when what you learned is that you're on the wrong
+   side of the table. */
+.unveil[data-tone='blood'] {
+  border-color: rgb(224 91 98 / 45%);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(224 91 98 / 12%) 0%, transparent 60%),
+    linear-gradient(168deg, rgb(48 24 32 / 95%), rgb(9 13 21 / 96%));
+  box-shadow:
+    0 1px 0 rgb(224 91 98 / 20%) inset,
+    var(--shadow-deep),
+    0 0 60px -22px rgb(224 91 98 / 60%);
+}
+
+.unveil[data-tone='blood'] .unveil__sigil {
+  background: radial-gradient(
+    circle at 36% 32%,
+    #ff9b9f 0%,
+    var(--blood) 55%,
+    var(--blood-deep) 100%
+  );
+  box-shadow:
+    inset -0.7rem -0.1rem 0 -0.25rem var(--ink-850),
+    0 0 36px -6px rgb(224 91 98 / 70%);
+}
+
+.unveil[data-tone='blood'] .unveil__value {
+  color: #ff9b9f;
+}
+
+.unveil[data-tone='blood']::before {
+  border-color: rgb(224 91 98 / 16%);
+}
+
+/* The Doppelganger's "you copied X" banner, pinned above the sub-action it
+   hands you. Bordered rather than filled so it reads as a standing note
+   about the screen below it, not as another thing to tap. */
+.copied {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--step-0);
+  color: var(--moon);
+  background: var(--moon-veil);
+  border: 1px solid var(--moon-line);
+  border-radius: var(--r-md);
+  text-wrap: pretty;
+}
+
+/* --- Dummy / sleeping screens ------------------------------------------ */
+
+/*
+ * What everyone else sees while another role acts. It must give away
+ * nothing — no timer, no role name, no hint of who is awake — so it is
+ * deliberately the quietest surface in the app.
+ */
+.slumber {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  text-align: center;
+}
+
+.slumber__prompt {
+  font-family: var(--font-display);
+  font-size: var(--step-3);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.15;
+  color: var(--bone-2);
+  text-wrap: balance;
+}
+
+.slumber__zzz {
+  font-family: var(--font-mono);
+  font-size: var(--step-2);
+  letter-spacing: 0.35em;
+  color: var(--bone-3);
+  opacity: 0.7;
+  animation: star-breathe 2.4s ease-in-out infinite alternate;
+}

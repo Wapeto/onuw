@@ -1,0 +1,96 @@
+/*
+ * Design tokens — "Veillée": a folk-horror woodcut under moonlight.
+ *
+ * Deliberately dark-only. This is a game played at night, in a room, with
+ * phones held low and often tilted away from neighbours. A light theme would
+ * blind players between ticks and — worse — a bright screen is a tell the
+ * whole table can read. So there is no `prefers-color-scheme` branch here:
+ * the night IS the product.
+ */
+
+:root {
+  /* --- Ground: blue-blacks, never pure #000 (which reads as a dead panel
+     on OLED and kills the paper/film feel the grain overlay builds). --- */
+  --ink-900: #06080d;
+  --ink-850: #090d15;
+  --ink-800: #0d1220;
+  --ink-750: #131a2b;
+  --ink-700: #1b2438;
+
+  /* --- Type: warm parchment rather than #fff. Pure white at 2am is
+     needlessly harsh; bone keeps the contrast (>14:1 on --ink-900) while
+     reading as candle-lit paper. --- */
+  --bone: #ece3d2;
+  --bone-2: #bdb6a8;
+  --bone-3: #8d8879;
+
+  /* --- The moon: the single dominant accent. Everything interactive that
+     matters is amber; everything else stays bone or ink. --- */
+  --moon: #f2c76b;
+  --moon-hot: #ffdf9d;
+  --moon-veil: rgb(242 199 107 / 12%);
+  --moon-line: rgb(242 199 107 / 38%);
+
+  /* --- Danger / teams. --blood is the text-safe tint (≈5.5:1 on ink);
+     --blood-deep is for fills only, never for text. --- */
+  --blood: #e05b62;
+  --blood-deep: #a3242b;
+  --sage: #93c3a0;
+  --ochre: #dd9450;
+
+  /* Hairlines are bone at low alpha so they pick up the warmth of the
+     ground instead of reading as grey plastic. */
+  --line: rgb(236 227 210 / 11%);
+  --line-strong: rgb(236 227 210 / 22%);
+
+  /* --- Type families. Self-hosted (see index.css) so the shell keeps its
+     typography offline — the service worker only caches same-origin. --- */
+  --font-display: 'Bodoni Moda Variable', 'Bodoni Moda', 'Didot',
+    'Times New Roman', serif;
+  --font-ui: 'Archivo Variable', 'Archivo', 'Helvetica Neue', sans-serif;
+  --font-mono: 'Martian Mono Variable', 'Martian Mono', ui-monospace,
+    'SF Mono', monospace;
+
+  /* Fluid scale, mobile-first: the small end is what a phone actually
+     renders, the large end only matters on a tablet propped on the table. */
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.0625rem;
+  --step-2: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+  --step-3: clamp(1.5rem, 1.25rem + 1.25vw, 2rem);
+  --step-4: clamp(2rem, 1.5rem + 2.5vw, 3rem);
+  --step-5: clamp(2.75rem, 1.9rem + 4.25vw, 4.5rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --r-sm: 0.5rem;
+  --r-md: 0.875rem;
+  --r-lg: 1.25rem;
+  --r-xl: 1.75rem;
+  --r-pill: 999px;
+
+  /* Two easings only. --ease-out for anything entering (fast then settles,
+     feels responsive under a thumb); --ease-soft for reversible states. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --shadow-lift: 0 1px 0 rgb(236 227 210 / 6%) inset,
+    0 18px 40px -20px rgb(0 0 0 / 90%);
+  --shadow-deep: 0 32px 70px -30px rgb(0 0 0 / 100%);
+  --glow-moon: 0 0 0 1px var(--moon-line), 0 0 34px -6px rgb(242 199 107 / 45%);
+
+  /* Tap targets. 3rem is the floor everywhere — players are tapping fast,
+     one-handed, sometimes literally in the dark. */
+  --tap: 3rem;
+
+  /* Content column. Wide enough for a 4-up player grid on a large phone,
+     narrow enough that a reveal line never runs long on a tablet. */
+  --measure: 32rem;
+}

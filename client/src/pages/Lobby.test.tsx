@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Lobby from "./Lobby";
 import { useRoomSocket } from "../hooks/useRoomSocket";
@@ -70,7 +70,16 @@ describe("Lobby", () => {
 
   it("marks the host in the roster", () => {
     renderAt("/room/ABCDE");
-    expect(screen.getByText(/Alice.*hôte/i)).toBeInTheDocument();
+    // Scoped to Alice's row rather than matching "Alice…hôte" as one string:
+    // the marker is now its own badge element, so the two words no longer
+    // share a text node. Same assertion — the host, and only the host, is
+    // labelled — without pinning the roster to a flat single-text-node row.
+    const aliceRow = screen.getByText("Alice").closest("li");
+    expect(aliceRow).not.toBeNull();
+    expect(within(aliceRow!).getByText(/hôte/i)).toBeInTheDocument();
+
+    const bobRow = screen.getByText("Bob").closest("li");
+    expect(within(bobRow!).queryByText(/hôte/i)).not.toBeInTheDocument();
   });
 
   it("renders the QR code for the room code from the route", () => {

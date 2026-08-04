@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRoomSocket } from "../hooks/useRoomSocket";
+import Screen from "../components/ui/Screen";
+import Choice from "../components/ui/Choice";
 
 function Vote() {
   const { roomCode: routeRoomCode } = useParams<{ roomCode: string }>();
@@ -14,26 +16,51 @@ function Vote() {
     }
   }, [revealResult, routeRoomCode, navigate]);
 
+  const votedName = players.find((p) => p.id === votedFor)?.pseudo;
+
   return (
-    <div>
-      <h1>Vote — {routeRoomCode}</h1>
-      <ul>
-        {players.map((p) => (
-          <li key={p.id}>
-            <button
+    <Screen phase="vote">
+      <header className="screen__head">
+        <p className="eyebrow">Le vote</p>
+        {/* Plain hyphen, not U+2011: Bodoni draws the non-breaking hyphen
+            as a long dash, so "Loup‑Garou" read as "Loup−Garou". */}
+        <h1 className="display screen__title">Qui est le Loup-Garou&nbsp;?</h1>
+        <p className="screen__lede">
+          À trois, tout le monde désigne. Ton choix reste modifiable jusqu'au dernier vote.
+        </p>
+      </header>
+
+      <div className="screen__body stagger">
+        <div className="choices">
+          {players.map((p, i) => (
+            <Choice
+              key={p.id}
+              index={i}
+              label={p.pseudo}
+              pressed={votedFor === p.id}
               onClick={() => {
                 setVotedFor(p.id);
                 submitVote(p.id);
               }}
-              aria-pressed={votedFor === p.id}
-            >
-              {p.pseudo}
-            </button>
-          </li>
-        ))}
-      </ul>
-      {votedFor && <p>Vote enregistré, en attente des autres joueurs…</p>}
-    </div>
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="screen__spacer" />
+
+      <footer className="screen__foot">
+        {votedFor ? (
+          // Naming the target back is the confirmation — on a grid of eight
+          // names a highlighted tile alone is easy to misread in the dark.
+          <p className="hint">
+            Vote enregistré pour {votedName}, en attente des autres joueurs…
+          </p>
+        ) : (
+          <p className="hint">Touche un nom pour voter</p>
+        )}
+      </footer>
+    </Screen>
   );
 }
 
