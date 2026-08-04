@@ -16,6 +16,12 @@ html {
      through on iOS — a genuine tell at the table. */
   background: var(--ink-900);
   -webkit-text-size-adjust: 100%;
+  /* Must live on the root, not on body: only the root element's
+     overscroll-behavior propagates to the viewport. Set on body it does
+     nothing at all — unless body has been turned into a scroll container,
+     in which case it silently swallows every touch scroll instead (see the
+     overflow-x note in responsive.css). */
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -33,7 +39,6 @@ body {
   /* Night screens are tap-only; killing the callout/selection stops a
      long-press from popping a text-selection menu over a role reveal. */
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
 }
 
 #root {

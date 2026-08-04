@@ -15,12 +15,26 @@
  * landscape SE have nothing in common except that both are "a phone".
  */
 
-/* Hard guarantee: nothing in this app may ever scroll sideways. Glows,
-   rotated QR frames and the oversized moon all bleed past the viewport by
-   design and would otherwise widen the document. */
+/*
+ * Hard guarantee: nothing in this app may ever scroll sideways. Glows,
+ * rotated QR frames and the oversized moon all bleed past the viewport by
+ * design and would otherwise widen the document.
+ *
+ * `clip`, not `hidden`. `overflow-x: hidden` forces overflow-y to compute to
+ * `auto`, which turns html AND body into real scroll containers. Body then
+ * sizes to its own content, so it has nothing to scroll — and a touch that
+ * lands on it is handed to a scroller that can't move rather than to the
+ * viewport. That was the lobby bug: a long roster pushed "Lancer la partie"
+ * below the fold and no amount of dragging brought it back. `clip` clips
+ * without creating a scroll container, so the viewport keeps the scroll.
+ * `hidden` stays as the fallback for engines without `clip` (Safari < 16);
+ * there the swallow can't happen either, because overscroll-behavior now
+ * sits on html instead of body (see base.css).
+ */
 html,
 body {
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Safe areas on every edge, not just top/bottom — a rotated phone puts the
