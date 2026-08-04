@@ -49,6 +49,7 @@ export function registerReplayEvents(
           ...transition(room, "ROLE_SELECT"),
           players,
           center: [],
+          roleReveal: null,
           night: null,
           day: null,
           vote: null,

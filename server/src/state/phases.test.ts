@@ -7,6 +7,7 @@ const base: GameState = {
   phase: "LOBBY",
   players: [],
   center: [],
+  roleReveal: null,
   night: null,
   roleSelection: null,
   createdAt: 1,
@@ -16,8 +17,9 @@ const base: GameState = {
 describe("canTransition", () => {
   it.each([
     ["LOBBY", "ROLE_SELECT"],
-    ["ROLE_SELECT", "NIGHT"],
+    ["ROLE_SELECT", "ROLE_REVEAL"],
     ["ROLE_SELECT", "LOBBY"],
+    ["ROLE_REVEAL", "NIGHT"],
     ["NIGHT", "DAY"],
     ["DAY", "VOTE"],
     ["VOTE", "REVEAL"],
@@ -28,6 +30,9 @@ describe("canTransition", () => {
 
   it.each([
     ["LOBBY", "NIGHT"],
+    // The deal no longer arms tick 0: every game passes through the
+    // briefing screen, so this shortcut must stay closed.
+    ["ROLE_SELECT", "NIGHT"],
     ["NIGHT", "LOBBY"],
     ["DAY", "REVEAL"],
     ["REVEAL", "LOBBY"],

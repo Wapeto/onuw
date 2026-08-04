@@ -13,12 +13,15 @@ const TEST_ORDER: NightTick[] = [
 function fixture(roomCode: string): GameState {
   return {
     roomCode,
-    phase: "ROLE_SELECT",
+    // The night is started from the briefing phase now, not straight off
+    // the deal.
+    phase: "ROLE_REVEAL",
     players: [
       { id: "p1", pseudo: "Alice", isHost: true, connected: true, reconnectToken: "token1", currentRoleId: "doppelganger" },
       { id: "p2", pseudo: "Bob", isHost: false, connected: true, reconnectToken: "token2", currentRoleId: "werewolf" },
     ],
     center: [],
+    roleReveal: { readyPlayerIds: [] },
     night: null,
     roleSelection: null,
     createdAt: 0,
@@ -51,7 +54,13 @@ describe("tickRunner", () => {
     const room = await getRoom("ABCD");
     expect(room?.phase).toBe("NIGHT");
     expect(room?.night?.tickIndex).toBe(0);
-    expect(broadcast).toHaveBeenCalledWith("ABCD", "TICK_START", { tickIndex: 0, tickId: "doppelganger", durationMs: 100 });
+    expect(broadcast).toHaveBeenCalledWith("ABCD", "TICK_START", {
+      tickIndex: 0,
+      tickId: "doppelganger",
+      durationMs: 100,
+      tickNumber: 1,
+      tickCount: 2,
+    });
     expect(emitToPlayer).toHaveBeenCalledWith("p1", "TICK_PAYLOAD", { tickId: "doppelganger", active: true });
     expect(emitToPlayer).toHaveBeenCalledWith("p2", "TICK_PAYLOAD", { tickId: "doppelganger", active: false });
     expect(scheduleAdvance).toHaveBeenCalledWith("ABCD", 100, expect.any(Number));
@@ -95,7 +104,13 @@ describe("tickRunner", () => {
 
     const room = await getRoom("EFGH");
     expect(room?.night?.tickIndex).toBe(1);
-    expect(broadcast).toHaveBeenCalledWith("EFGH", "TICK_START", { tickIndex: 1, tickId: "werewolf", durationMs: 100 });
+    expect(broadcast).toHaveBeenCalledWith("EFGH", "TICK_START", {
+      tickIndex: 1,
+      tickId: "werewolf",
+      durationMs: 100,
+      tickNumber: 2,
+      tickCount: 2,
+    });
   });
 
   it("advanceTick past the last tick ends the night and moves to DAY", async () => {

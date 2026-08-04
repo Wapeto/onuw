@@ -21,7 +21,7 @@ const EDITABLE_ROLE_IDS = ROLE_IDS.filter((id) => id !== "villager");
 function RoleSelect() {
   const { roomCode: routeRoomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
-  const { playerId, players, roleSelection, currentTick, setRoleMode, setCustomRoles, startGame, dayDurationMs, setDayDuration } = useRoomSocket();
+  const { playerId, players, roleSelection, myRole, currentTick, setRoleMode, setCustomRoles, startGame, dayDurationMs, setDayDuration } = useRoomSocket();
 
   // Shown immediately on arrival, not gated on currentTick/night starting:
   // gating on currentTick meant the notice raced tick 0's already-running
@@ -33,11 +33,18 @@ function RoleSelect() {
     () => !routeRoomCode || isOnboardingDismissed(routeRoomCode),
   );
 
+  // The deal now lands on the briefing screen rather than on tick 0. The
+  // currentTick branch is the safety net for a client that missed YOUR_ROLE
+  // (a socket blip across the deal): it must still follow the room into the
+  // night instead of sitting here on a dead form.
   useEffect(() => {
-    if (currentTick && routeRoomCode && onboardingDismissed) {
+    if (!routeRoomCode || !onboardingDismissed) return;
+    if (currentTick) {
       navigate(`/room/${routeRoomCode}/night`);
+    } else if (myRole) {
+      navigate(`/room/${routeRoomCode}/role`);
     }
-  }, [currentTick, routeRoomCode, navigate, onboardingDismissed]);
+  }, [currentTick, myRole, routeRoomCode, navigate, onboardingDismissed]);
 
   const me = players.find((p) => p.id === playerId);
   const isHost = me?.isHost ?? false;
@@ -230,7 +237,7 @@ function RoleSelect() {
             </button>
             <p className="hint">
               {valid
-                ? "La nuit commence dès que tu lances"
+                ? "Chacun découvre sa carte, puis la nuit commence"
                 : remaining > 0
                   ? `Ajoute encore ${remaining} carte${remaining > 1 ? "s" : ""}`
                   : "Cette combinaison de rôles n'est pas jouable"}

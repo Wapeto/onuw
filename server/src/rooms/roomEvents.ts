@@ -7,8 +7,10 @@ import { generateRoomCode } from "./roomCode.js";
 import { createRoom, withRoom, RoomNotFoundError, getRoom } from "./roomStore.js";
 import { toPublicPlayers, toRevealPlayers } from "./roomView.js";
 import { registerRoleSelectEvents, type Membership, type RoleSelectTickRunner } from "./roleSelectEvents.js";
+import { registerRoleRevealEvents, deckCounts, wakesAtNight } from "./roleRevealEvents.js";
 import { registerNightActionEvents } from "../night/nightActionEvents.js";
 import { registerDayDurationEvents } from "../day/dayDurationEvents.js";
+import { registerDayControlEvents, type DayController } from "../day/dayControlEvents.js";
 import { registerVoteEvents } from "../day/voteEvents.js";
 import { registerReplayEvents } from "./replayEvents.js";
 import { createDisconnectHandler } from "./disconnectHandler.js";
@@ -77,6 +79,7 @@ export function registerRoomEvents(
   socket: AppSocket,
   tickRunner: RoleSelectTickRunner,
   disconnectHandler: ReturnType<typeof createDisconnectHandler>,
+  dayTimer: DayController,
 ): void {
   let membership: Membership | null = null;
 
@@ -101,6 +104,20 @@ export function registerRoomEvents(
         socket.emit("ROOM_JOINED", { roomCode, playerId, reconnectToken });
         await broadcastRoster(io, state);
         socket.emit("DAY_DURATION_UPDATE", { durationMs: state.dayDurationMs });
+        // A player who reloads during the briefing must get their card back;
+        // it lives only in that one socket emit, nowhere the client persists.
+        const me = state.players.find((p) => p.id === playerId);
+        if (state.phase === "ROLE_REVEAL" && me?.originalRoleId) {
+          socket.emit("YOUR_ROLE", {
+            roleId: me.originalRoleId,
+            rolesInPlay: deckCounts(state),
+            wakesAtNight: wakesAtNight(me.originalRoleId),
+          });
+          socket.emit("ROLE_REVEAL_UPDATE", {
+            readyPlayerIds: state.roleReveal?.readyPlayerIds ?? [],
+            totalPlayers: state.players.length,
+          });
+        }
         if (state.phase === "DAY" && state.day) {
           const elapsed = Date.now() - state.day.startedAt;
           const remainingMs = Math.max(state.day.durationMs - elapsed, 0);
@@ -152,6 +169,7 @@ export function registerRoomEvents(
               { id: playerId, pseudo: parsed.data.pseudo, isHost: true, connected: true, reconnectToken },
             ],
             center: [],
+            roleReveal: null,
             night: null,
             day: null,
             vote: null,
@@ -257,9 +275,11 @@ export function registerRoomEvents(
     })();
   });
 
-  registerRoleSelectEvents(io, socket, () => membership, tickRunner);
+  registerRoleSelectEvents(io, socket, () => membership);
+  registerRoleRevealEvents(io, socket, () => membership, tickRunner);
   registerNightActionEvents(io, socket, () => membership);
   registerDayDurationEvents(io, socket, () => membership);
+  registerDayControlEvents(socket, () => membership, dayTimer);
   registerVoteEvents(io, socket, () => membership);
   registerReplayEvents(io, socket, () => membership);
 }

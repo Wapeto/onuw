@@ -1,10 +1,12 @@
 import type { ReactElement } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { NightTickId } from "@onuw/shared";
 import { useRoomSocket } from "../hooks/useRoomSocket";
 import { useFullscreen } from "../hooks/useFullscreen";
-import DummyScreen from "../components/night/DummyScreen";
+import DreamScreen from "../components/night/DreamScreen";
+import Slumber from "../components/night/Slumber";
+import NightBar from "../components/night/NightBar";
 import Screen from "../components/ui/Screen";
 import Waiting from "../components/ui/Waiting";
 import type { RoleScreenProps } from "../components/night/roleScreenTypes";
@@ -38,6 +40,15 @@ function Night() {
     useRoomSocket();
   useFullscreen(!nightEnded);
 
+  // Whether this player is through with this tick — acted and acknowledged,
+  // or dreamt to the end. Both land on the same idle screen, so a finished
+  // tick tells a neighbour nothing about who was actually awake.
+  const [done, setDone] = useState(false);
+  const tickIndex = currentTick?.tickIndex ?? -1;
+  useEffect(() => {
+    setDone(false);
+  }, [tickIndex]);
+
   useEffect(() => {
     if (daySession && routeRoomCode) {
       navigate(`/room/${routeRoomCode}/day`);
@@ -54,19 +65,35 @@ function Night() {
   // Both branches share one shell so the ground, the moon and the vertical
   // centring never shift between a tick where you act and a tick where you
   // don't — a visible layout change between the two would be a tell anyone
-  // glancing across the table could read.
+  // glancing across the table could read. The bar sits outside the branch
+  // for the same reason: it is identical for everyone by construction.
   return (
     <Screen phase="night" align="center">
-      {currentTick.active ? (
+      <NightBar
+        tickId={currentTick.tickId}
+        tickNumber={currentTick.tickNumber}
+        tickCount={currentTick.tickCount}
+        durationMs={currentTick.durationMs}
+        tickIndex={currentTick.tickIndex}
+      />
+      {done ? (
+        <Slumber />
+      ) : currentTick.active ? (
         <RoleScreen
           playerId={playerId}
           players={players}
           result={result as never}
           onSubmit={(params) => submitNightAction(currentTick.tickId, params)}
-          onContinue={() => {}}
+          onContinue={() => setDone(true)}
         />
       ) : (
-        <DummyScreen tickId={currentTick.tickId} />
+        <DreamScreen
+          tickId={currentTick.tickId}
+          tickIndex={currentTick.tickIndex}
+          playerId={playerId}
+          players={players}
+          onDone={() => setDone(true)}
+        />
       )}
     </Screen>
   );

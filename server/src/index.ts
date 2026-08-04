@@ -45,7 +45,7 @@ export function createApp() {
 
   io.on("connection", (socket) => {
     socket.emit("connected", { socketId: socket.id });
-    registerRoomEvents(io, socket, tickRunner, disconnectHandler);
+    registerRoomEvents(io, socket, tickRunner, disconnectHandler, dayTimer);
   });
 
   return { httpServer, io, subClient };

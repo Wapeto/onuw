@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { GameState, Player } from "@onuw/shared";
-import { NIGHT_ORDER } from "./nightOrder.js";
+import type { GameState, Player, RoleId } from "@onuw/shared";
+import { NIGHT_ORDER, nightOrderFor } from "./nightOrder.js";
 
 function player(overrides: Partial<Player>): Player {
   return { id: "p1", pseudo: "Alice", isHost: false, connected: true, ...overrides };
@@ -96,5 +96,58 @@ describe("NIGHT_ORDER", () => {
     };
     expect(tick.activeFor(dopp, state)).toBe(true);
     expect(tick.activeFor(genuine, state)).toBe(false);
+  });
+});
+
+describe("nightOrderFor", () => {
+  function dealt(playerRoles: RoleId[], center: RoleId[]): GameState {
+    return {
+      ...stateWith(
+        playerRoles.map((roleId, i) =>
+          player({ id: `p${i}`, originalRoleId: roleId, currentRoleId: roleId }),
+        ),
+      ),
+      center,
+    };
+  }
+
+  it("calls only the roles that were actually dealt into this game", () => {
+    // Classique at 3 players. The first playtest called all ten roles here,
+    // including five that weren't in the box.
+    const state = dealt(["werewolf", "seer", "robber"], ["troublemaker", "villager", "werewolf"]);
+    expect(nightOrderFor(state).map((t) => t.tickId)).toEqual([
+      "werewolf",
+      "seer",
+      "robber",
+      "troublemaker",
+    ]);
+  });
+
+  it("still calls a role whose only card is in the centre", () => {
+    // Skipping it would tell the whole table where the Seer is.
+    const state = dealt(["werewolf", "villager", "villager"], ["seer", "villager", "villager"]);
+    expect(nightOrderFor(state).map((t) => t.tickId)).toEqual(["werewolf", "seer"]);
+  });
+
+  it("omits the doppelganger's insomniac turn unless both cards are in play", () => {
+    const withoutInsomniac = dealt(["doppelganger", "werewolf", "villager"], ["villager", "villager", "villager"]);
+    expect(nightOrderFor(withoutInsomniac).map((t) => t.tickId)).toEqual(["doppelganger", "werewolf"]);
+
+    const withBoth = dealt(["doppelganger", "werewolf", "insomniac"], ["villager", "villager", "villager"]);
+    expect(nightOrderFor(withBoth).map((t) => t.tickId)).toEqual([
+      "doppelganger",
+      "werewolf",
+      "insomniac",
+      "doppelgangerInsomniac",
+    ]);
+  });
+
+  it("is empty when the deck has no waking role at all", () => {
+    const state = dealt(["villager", "hunter", "tanner"], ["villager", "villager", "villager"]);
+    expect(nightOrderFor(state)).toEqual([]);
+  });
+
+  it("falls back to the full order before any cards are dealt", () => {
+    expect(nightOrderFor(stateWith([player({})]))).toEqual(NIGHT_ORDER);
   });
 });

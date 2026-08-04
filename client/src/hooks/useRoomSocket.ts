@@ -7,6 +7,7 @@ import type {
   PublicPlayer,
   RevealPlayer,
   RoleCounts,
+  RoleId,
   ServerToClientEvents,
   WinningTeam,
 } from "@onuw/shared";
@@ -26,6 +27,21 @@ export interface CurrentTick {
   tickId: NightTickId;
   durationMs: number;
   active: boolean;
+  /** 1-based position in this game's night, for "Rôle 3 / 5". */
+  tickNumber: number;
+  tickCount: number;
+}
+
+/** The card you were dealt, plus the deck everyone agreed to play with. */
+export interface MyRole {
+  roleId: RoleId;
+  rolesInPlay: RoleCounts;
+  wakesAtNight: boolean;
+}
+
+export interface RoleRevealProgress {
+  readyPlayerIds: string[];
+  totalPlayers: number;
 }
 
 export interface RoleSelectionState {
@@ -63,6 +79,10 @@ export interface RoomSession {
   setRoleMode: (mode: GameMode) => void;
   setCustomRoles: (roles: RoleCounts) => void;
   startGame: () => void;
+  myRole: MyRole | null;
+  roleRevealProgress: RoleRevealProgress | null;
+  readyForNight: () => void;
+  startNight: () => void;
   currentTick: CurrentTick | null;
   nightPaused: boolean;
   nightEnded: boolean;
@@ -73,6 +93,7 @@ export interface RoomSession {
   voteStarted: boolean;
   voteResult: VoteResultState | null;
   setDayDuration: (durationMs: number) => void;
+  skipDay: () => void;
   submitVote: (targetPlayerId: string) => void;
   revealResult: RevealResultState | null;
   replay: () => void;
@@ -98,6 +119,8 @@ export function useRoomSocket(): RoomSession {
   const [playerId, setPlayerId] = useState("");
   const [players, setPlayers] = useState<PublicPlayer[]>([]);
   const [roleSelection, setRoleSelectionState] = useState<RoleSelectionState | null>(null);
+  const [myRole, setMyRole] = useState<MyRole | null>(null);
+  const [roleRevealProgress, setRoleRevealProgress] = useState<RoleRevealProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentTick, setCurrentTick] = useState<CurrentTick | null>(null);
   const [nightPaused, setNightPaused] = useState(false);
@@ -136,8 +159,16 @@ export function useRoomSocket(): RoomSession {
       setError(null);
     });
     socket.on("PLAYER_LIST_UPDATE", (payload) => setPlayers(payload.players));
-    socket.on("ROLE_SELECTION_UPDATE", (payload) => setRoleSelectionState(payload));
+    socket.on("ROLE_SELECTION_UPDATE", (payload) => {
+      setRoleSelectionState(payload);
+      // Reaching role selection means a fresh deal is coming (first game, or
+      // "Rejouer"), so last game's card must not linger on the briefing screen.
+      setMyRole(null);
+      setRoleRevealProgress(null);
+    });
     socket.on("ROOM_ERROR", (payload) => setError(payload.message));
+    socket.on("YOUR_ROLE", (payload) => setMyRole(payload));
+    socket.on("ROLE_REVEAL_UPDATE", (payload) => setRoleRevealProgress(payload));
     socket.on("TICK_START", (payload) => {
       setCurrentTick({ ...payload, active: false });
       setActionResult(null);
@@ -193,12 +224,24 @@ export function useRoomSocket(): RoomSession {
     socketRef.current?.emit("START_GAME");
   }, []);
 
+  const readyForNight = useCallback(() => {
+    socketRef.current?.emit("READY_FOR_NIGHT");
+  }, []);
+
+  const startNight = useCallback(() => {
+    socketRef.current?.emit("START_NIGHT");
+  }, []);
+
   const submitNightAction = useCallback((tickId: NightTickId, params: Record<string, unknown>) => {
     socketRef.current?.emit("SUBMIT_NIGHT_ACTION", { tickId, params });
   }, []);
 
   const setDayDuration = useCallback((durationMs: number) => {
     socketRef.current?.emit("SET_DAY_DURATION", { durationMs });
+  }, []);
+
+  const skipDay = useCallback(() => {
+    socketRef.current?.emit("SKIP_DAY");
   }, []);
 
   const submitVote = useCallback((targetPlayerId: string) => {
@@ -221,6 +264,10 @@ export function useRoomSocket(): RoomSession {
     setRoleMode,
     setCustomRoles,
     startGame,
+    myRole,
+    roleRevealProgress,
+    readyForNight,
+    startNight,
     currentTick,
     nightPaused,
     nightEnded,
@@ -231,6 +278,7 @@ export function useRoomSocket(): RoomSession {
     voteStarted,
     voteResult,
     setDayDuration,
+    skipDay,
     submitVote,
     revealResult,
     replay,

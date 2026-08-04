@@ -1,7 +1,7 @@
 import type { GameState } from "@onuw/shared";
 import { getRoom, saveRoom } from "../rooms/roomStore.js";
-import { transition } from "../state/phases.js";
-import { NIGHT_ORDER, type NightTick } from "./nightOrder.js";
+import { canTransition, transition } from "../state/phases.js";
+import { NIGHT_ORDER, nightOrderFor, type NightTick } from "./nightOrder.js";
 
 export interface TickRunnerDeps {
   broadcast: (roomCode: string, event: string, payload: unknown) => void;
@@ -17,7 +17,7 @@ function computeDuration(tick: NightTick, jitterMs: number): number {
 }
 
 export function createTickRunner(deps: TickRunnerDeps) {
-  const nightOrder = deps.nightOrder ?? NIGHT_ORDER;
+  const baseNightOrder = deps.nightOrder ?? NIGHT_ORDER;
   const jitterMs = deps.jitterMs ?? 1500;
   const scheduleAdvance =
     deps.scheduleAdvance ??
@@ -27,10 +27,25 @@ export function createTickRunner(deps: TickRunnerDeps) {
       }, delayMs);
     });
 
+  // The deck is frozen for the whole night, so this is stable across calls
+  // and `tickIndex` keeps indexing the same list from TICK_START to NIGHT_END.
+  function orderFor(room: GameState): NightTick[] {
+    return nightOrderFor(room, baseNightOrder);
+  }
+
+  async function endNight(room: GameState): Promise<void> {
+    const updated: GameState = { ...transition(room, "DAY"), night: null };
+    await saveRoom(updated);
+    deps.broadcast(room.roomCode, "NIGHT_END", {});
+    await deps.onNightEnd?.(room.roomCode);
+  }
+
   async function scheduleTick(roomCode: string): Promise<void> {
     const room = await getRoom(roomCode);
     if (!room || !room.night) return;
+    const nightOrder = orderFor(room);
     const tick = nightOrder[room.night.tickIndex];
+    if (!tick) return;
     const durationMs = computeDuration(tick, jitterMs);
     const updated: GameState = {
       ...room,
@@ -39,7 +54,15 @@ export function createTickRunner(deps: TickRunnerDeps) {
     };
     await saveRoom(updated);
 
-    deps.broadcast(roomCode, "TICK_START", { tickIndex: updated.night!.tickIndex, tickId: tick.tickId, durationMs });
+    deps.broadcast(roomCode, "TICK_START", {
+      tickIndex: updated.night!.tickIndex,
+      tickId: tick.tickId,
+      durationMs,
+      // Position in the night, so every player — acting or not — can see the
+      // night is a finite thing making progress rather than an unmarked void.
+      tickNumber: updated.night!.tickIndex + 1,
+      tickCount: nightOrder.length,
+    });
     for (const p of updated.players) {
       deps.emitToPlayer(p.id, "TICK_PAYLOAD", { tickId: tick.tickId, active: tick.activeFor(p, updated) });
     }
@@ -50,8 +73,13 @@ export function createTickRunner(deps: TickRunnerDeps) {
   async function startNight(roomCode: string): Promise<void> {
     const room = await getRoom(roomCode);
     if (!room) throw new Error(`room ${roomCode} not found`);
+    // Two players tapping "prêt" at the same instant both observe a full
+    // ready set, so both call in here. The second one is a no-op rather than
+    // an invalid-transition error surfacing as a toast on someone's phone.
+    if (!canTransition(room.phase, "NIGHT")) return;
     const updated: GameState = {
       ...transition(room, "NIGHT"),
+      roleReveal: null,
       night: {
         tickIndex: 0,
         tickStartedAt: Date.now(),
@@ -64,6 +92,12 @@ export function createTickRunner(deps: TickRunnerDeps) {
       },
     };
     await saveRoom(updated);
+    // A deck with no waking roles at all (possible in Personnalisé) would
+    // otherwise index past the end of an empty order and strand the room.
+    if (orderFor(updated).length === 0) {
+      await endNight(updated);
+      return;
+    }
     await scheduleTick(roomCode);
   }
 
@@ -73,11 +107,8 @@ export function createTickRunner(deps: TickRunnerDeps) {
     if (expectedTickStartedAt !== undefined && room.night.tickStartedAt !== expectedTickStartedAt) return;
     const nextIndex = room.night.tickIndex + 1;
 
-    if (nextIndex >= nightOrder.length) {
-      const updated: GameState = { ...transition(room, "DAY"), night: null };
-      await saveRoom(updated);
-      deps.broadcast(roomCode, "NIGHT_END", {});
-      await deps.onNightEnd?.(roomCode);
+    if (nextIndex >= orderFor(room).length) {
+      await endNight(room);
       return;
     }
 

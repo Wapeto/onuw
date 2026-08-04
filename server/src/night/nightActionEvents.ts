@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 import type { ClientToServerEvents, NightTickId, ServerToClientEvents } from "@onuw/shared";
 import { withRoom } from "../rooms/roomStore.js";
-import { NIGHT_ORDER, type NightTick } from "./nightOrder.js";
+import { NIGHT_ORDER, nightOrderFor, type NightTick } from "./nightOrder.js";
 import { actionResolvers } from "../roles/actionResolvers.js";
 import { actionParamsSchemas } from "../roles/actionSchemas.js";
 import type { Membership } from "../rooms/roleSelectEvents.js";
@@ -47,8 +47,11 @@ export function registerNightActionEvents(
     try {
       await withRoom(membership.roomCode, (room) => {
         if (room.phase !== "NIGHT" || !room.night) throw new NotInNightError();
-        const tick = nightOrder[room.night.tickIndex];
-        if (tick.tickId !== payload.tickId) throw new StaleTickError();
+        // Must be the same filtered order the tick runner is walking, or
+        // tickIndex would resolve to a different role here than the one the
+        // client was actually shown.
+        const tick = nightOrderFor(room, nightOrder)[room.night.tickIndex];
+        if (!tick || tick.tickId !== payload.tickId) throw new StaleTickError();
         const player = room.players.find((p) => p.id === membership.playerId);
         if (!player || !tick.activeFor(player, room)) throw new NotActiveError();
 

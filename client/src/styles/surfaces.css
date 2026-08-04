@@ -356,3 +356,24 @@
 .outcome[data-team='tanner'] {
   --outcome-color: var(--ochre);
 }
+
+/* Team badge on the role briefing. The three teams are the only thing on
+   that screen a player must not misread, so each gets its own colour
+   rather than sharing the neutral chip treatment. */
+.chip[data-team='village'] {
+  color: var(--sage);
+  border-color: color-mix(in oklab, var(--sage) 40%, transparent);
+  background: color-mix(in oklab, var(--sage) 10%, transparent);
+}
+
+.chip[data-team='werewolf'] {
+  color: var(--blood);
+  border-color: color-mix(in oklab, var(--blood) 40%, transparent);
+  background: color-mix(in oklab, var(--blood) 10%, transparent);
+}
+
+.chip[data-team='tanner'] {
+  color: var(--ochre);
+  border-color: color-mix(in oklab, var(--ochre) 40%, transparent);
+  background: color-mix(in oklab, var(--ochre) 10%, transparent);
+}

@@ -25,7 +25,7 @@ function urgencyOf(remainingMs: number): "calm" | "warn" | "critical" {
 function Day() {
   const { roomCode: routeRoomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
-  const { daySession, voteStarted } = useRoomSocket();
+  const { playerId, players, daySession, voteStarted, skipDay } = useRoomSocket();
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
   useEffect(() => {
@@ -49,6 +49,7 @@ function Day() {
 
   const totalMs = daySession?.durationMs ?? 1;
   const progress = totalMs > 0 ? Math.max(remainingMs / totalMs, 0) : 0;
+  const isHost = players.find((p) => p.id === playerId)?.isHost ?? false;
 
   return (
     <Screen phase="day" align="center">
@@ -65,6 +66,24 @@ function Day() {
           {remainingMs === 0 ? "Temps écoulé" : "Avant le vote"}
         </p>
       </div>
+
+      <div className="screen__spacer" />
+
+      {/* A table that has said everything it has to say should not have to
+          watch a clock run down. Host-only, like every other action that
+          moves the whole room forward. */}
+      <footer className="screen__foot">
+        {isHost ? (
+          <>
+            <button type="button" className="btn btn--primary btn--block" onClick={() => skipDay()}>
+              Passer au vote
+            </button>
+            <p className="hint">Tout le monde vote immédiatement.</p>
+          </>
+        ) : (
+          <p className="hint">L'hôte peut lancer le vote plus tôt.</p>
+        )}
+      </footer>
     </Screen>
   );
 }

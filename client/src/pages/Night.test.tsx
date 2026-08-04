@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Night from "./Night";
 
@@ -23,11 +23,14 @@ describe("Night", () => {
     mockUseRoomSocket.mockReset();
   });
 
-  it("shows DummyScreen when the current tick isn't active for this player", () => {
+  it("gives a sleeping player a dream that mirrors the acting screen", () => {
     mockUseRoomSocket.mockReturnValue({
       playerId: "p1",
-      players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true }],
-      currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
+      players: [
+        { id: "p1", pseudo: "Alice", isHost: true, connected: true },
+        { id: "p2", pseudo: "Bob", isHost: false, connected: true },
+      ],
+      currentTick: { tickIndex: 0, tickId: "robber", durationMs: 8000, active: false, tickNumber: 1, tickCount: 4 },
       nightPaused: false,
       nightEnded: false,
       actionResult: null,
@@ -36,14 +39,76 @@ describe("Night", () => {
     });
 
     renderNight();
-    expect(screen.getByText("Continuer à dormir")).toBeInTheDocument();
+    // Same gesture the real Voleur is making right now — a player grid — so
+    // a glance across the table can't tell the two screens apart.
+    expect(screen.getByText(/tu tends la main/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bob" })).toBeInTheDocument();
+  });
+
+  it("never submits anything a sleeping player taps", () => {
+    const submitNightAction = vi.fn();
+    mockUseRoomSocket.mockReturnValue({
+      playerId: "p1",
+      players: [
+        { id: "p1", pseudo: "Alice", isHost: true, connected: true },
+        { id: "p2", pseudo: "Bob", isHost: false, connected: true },
+      ],
+      currentTick: { tickIndex: 0, tickId: "robber", durationMs: 8000, active: false, tickNumber: 1, tickCount: 4 },
+      nightPaused: false,
+      nightEnded: false,
+      actionResult: null,
+      submitNightAction,
+      daySession: null,
+    });
+
+    vi.useFakeTimers();
+    try {
+      renderNight();
+      fireEvent.click(screen.getByRole("button", { name: "Bob" }));
+
+      expect(submitNightAction).not.toHaveBeenCalled();
+      // The unveil is held back by the same beat a real action spends
+      // waiting on the server, so the two screens resolve in step.
+      expect(screen.queryByRole("button", { name: "J'ai vu" })).not.toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getByRole("button", { name: "J'ai vu" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows the same night bar whether or not this player is acting", () => {
+    const tick = { tickIndex: 2, tickId: "seer" as const, durationMs: 25_000, tickNumber: 3, tickCount: 4 };
+    const base = {
+      playerId: "p1",
+      players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true }],
+      nightPaused: false,
+      nightEnded: false,
+      actionResult: null,
+      submitNightAction: vi.fn(),
+      daySession: null,
+    };
+
+    mockUseRoomSocket.mockReturnValue({ ...base, currentTick: { ...tick, active: false } });
+    const asleep = renderNight();
+    expect(screen.getByText("Nuit · 3/4")).toBeInTheDocument();
+    expect(screen.getByText("La Voyante")).toBeInTheDocument();
+    asleep.unmount();
+
+    mockUseRoomSocket.mockReturnValue({ ...base, currentTick: { ...tick, active: true } });
+    renderNight();
+    expect(screen.getByText("Nuit · 3/4")).toBeInTheDocument();
+    expect(screen.getByText("La Voyante")).toBeInTheDocument();
   });
 
   it("shows the matching role screen when active", () => {
     mockUseRoomSocket.mockReturnValue({
       playerId: "p1",
       players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true }],
-      currentTick: { tickIndex: 0, tickId: "robber", durationMs: 8000, active: true },
+      currentTick: { tickIndex: 0, tickId: "robber", durationMs: 8000, active: true, tickNumber: 1, tickCount: 4 },
       nightPaused: false,
       nightEnded: false,
       actionResult: null,
@@ -59,7 +124,7 @@ describe("Night", () => {
     mockUseRoomSocket.mockReturnValue({
       playerId: "p1",
       players: [{ id: "p1", pseudo: "Alice", isHost: true, connected: true }],
-      currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false },
+      currentTick: { tickIndex: 0, tickId: "seer", durationMs: 8000, active: false, tickNumber: 1, tickCount: 4 },
       nightPaused: true,
       nightEnded: false,
       actionResult: null,
@@ -69,7 +134,7 @@ describe("Night", () => {
 
     renderNight();
     expect(screen.getByText(/en pause/)).toBeInTheDocument();
-    expect(screen.queryByText("Continuer à dormir")).not.toBeInTheDocument();
+    expect(screen.queryByText("La Voyante")).not.toBeInTheDocument();
   });
 
   it("shows the end-of-night text once NIGHT_END fires", () => {

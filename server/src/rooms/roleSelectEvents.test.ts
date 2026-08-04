@@ -112,17 +112,59 @@ describe("role select events", () => {
     expect((await validUpdate).valid).toBe(true);
   });
 
-  // un-skipped in Task 5, once index.ts wires the real TickRunner
-  it("deals roles and starts the night sequence on START_GAME", async () => {
-    const { host, roomCode } = await roomWithThreePlayers();
+  it("deals every player their own card on START_GAME, without starting the night", async () => {
+    const { host, guest1, roomCode } = await roomWithThreePlayers();
     host.emit("START_ROLE_SELECT");
     await new Promise<void>((resolve) => host.once("ROLE_SELECTION_UPDATE", () => resolve()));
 
-    const tickStart = new Promise<{ tickIndex: number }>((resolve) => host.once("TICK_START", resolve));
+    const hostCard = new Promise<{ roleId: string; rolesInPlay: Record<string, number>; wakesAtNight: boolean }>(
+      (resolve) => host.once("YOUR_ROLE", resolve),
+    );
+    const guestCard = new Promise<{ roleId: string }>((resolve) => guest1.once("YOUR_ROLE", resolve));
+    // The night must NOT begin here: this was the playtest bug — the deal
+    // and tick 0 landed in the same instant, so nobody ever saw their role.
+    let tickStarted = false;
+    host.on("TICK_START", () => {
+      tickStarted = true;
+    });
+
     host.emit("START_GAME");
+    const card = await hostCard;
+    await guestCard;
+
+    expect(card.roleId).toBeTruthy();
+    // 3 players + 3 centre cards, exactly the deck the host configured.
+    expect(Object.values(card.rolesInPlay).reduce((a, b) => a + b, 0)).toBe(6);
+    expect(tickStarted).toBe(false);
+    expect(roomCode).toBeTruthy();
+  });
+
+  it("starts the night only once every player has confirmed their role", async () => {
+    const { host, guest1, guest2 } = await roomWithThreePlayers();
+    host.emit("START_ROLE_SELECT");
+    await new Promise<void>((resolve) => host.once("ROLE_SELECTION_UPDATE", () => resolve()));
+    host.emit("START_GAME");
+    await new Promise<void>((resolve) => host.once("YOUR_ROLE", () => resolve()));
+
+    const tickStart = new Promise<{ tickIndex: number; tickCount: number }>((resolve) =>
+      host.once("TICK_START", resolve),
+    );
+
+    const twoReady = new Promise<void>((resolve) => {
+      host.on("ROLE_REVEAL_UPDATE", (p: { readyPlayerIds: string[] }) => {
+        if (p.readyPlayerIds.length === 2) resolve();
+      });
+    });
+    host.emit("READY_FOR_NIGHT");
+    guest1.emit("READY_FOR_NIGHT");
+    await twoReady;
+
+    guest2.emit("READY_FOR_NIGHT");
     const tick = await tickStart;
     expect(tick.tickIndex).toBe(0);
-    expect(roomCode).toBeTruthy();
+    // Classique at 3 players is Werewolf/Seer/Robber/Troublemaker/Villager,
+    // so the night is exactly four calls — not the full ten-role table.
+    expect(tick.tickCount).toBe(4);
   });
 
   it("rejects START_GAME while the selection is still invalid", async () => {

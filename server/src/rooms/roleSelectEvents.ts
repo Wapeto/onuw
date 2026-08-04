@@ -12,6 +12,7 @@ import {
 import { withRoom } from "./roomStore.js";
 import { transition } from "../state/phases.js";
 import { assignRoles } from "../roles/presetValidation.js";
+import { broadcastRoleReveal, emitRoleCards } from "./roleRevealEvents.js";
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -72,7 +73,6 @@ export function registerRoleSelectEvents(
   io: AppServer,
   socket: AppSocket,
   getMembership: () => Membership | null,
-  tickRunner: RoleSelectTickRunner,
 ): void {
   socket.on("START_ROLE_SELECT", () => {
     void (async () => {
@@ -165,9 +165,15 @@ export function registerRoleSelectEvents(
             room.roleSelection.roles,
           );
           if (!valid) throw new InvalidSelectionError();
-          return assignRoles(room);
+          // The deal no longer arms the first tick. Cards go out, then the
+          // table sits in ROLE_REVEAL until everyone has read theirs — the
+          // night starting in the same breath as the deal was the single
+          // biggest reason the first playtest was unreadable.
+          const dealt = assignRoles(room);
+          return { ...transition(dealt, "ROLE_REVEAL"), roleReveal: { readyPlayerIds: [] } };
         });
-        await tickRunner.startNight(state.roomCode);
+        emitRoleCards(io, state);
+        broadcastRoleReveal(io, state);
       } catch (err) {
         socket.emit("ROOM_ERROR", { message: errorMessageFor(err) });
       }

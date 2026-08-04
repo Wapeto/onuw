@@ -2,7 +2,8 @@ import type { GameState, RoomPhase } from "@onuw/shared";
 
 const ALLOWED_TRANSITIONS: Record<RoomPhase, RoomPhase[]> = {
   LOBBY: ["ROLE_SELECT"],
-  ROLE_SELECT: ["NIGHT", "LOBBY"],
+  ROLE_SELECT: ["ROLE_REVEAL", "LOBBY"],
+  ROLE_REVEAL: ["NIGHT"],
   NIGHT: ["DAY"],
   DAY: ["VOTE"],
   VOTE: ["REVEAL"],

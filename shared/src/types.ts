@@ -38,6 +38,7 @@ export type NightTickId = (typeof NIGHT_TICK_IDS)[number];
 export type RoomPhase =
   | "LOBBY"
   | "ROLE_SELECT"
+  | "ROLE_REVEAL"
   | "NIGHT"
   | "DAY"
   | "VOTE"
@@ -91,6 +92,18 @@ export interface DayState {
   durationMs: number;
 }
 
+/**
+ * The briefing that sits between the deal and the first night tick.
+ *
+ * Playtesting showed the night was unreadable without it: cards were dealt
+ * and the first tick armed in the same instant, so a player never found out
+ * what they were holding, let alone what they were supposed to do with it.
+ * The night now waits here until everyone says they've read their card.
+ */
+export interface RoleRevealState {
+  readyPlayerIds: string[];
+}
+
 export interface VoteState {
   votes: Record<string, string>;
 }
@@ -120,6 +133,7 @@ export interface GameState {
   phase: RoomPhase;
   players: Player[];
   center: RoleId[];
+  roleReveal: RoleRevealState | null;
   night: NightState | null;
   day: DayState | null;
   vote: VoteState | null;
@@ -138,7 +152,20 @@ export interface ServerToClientEvents {
   PLAYER_LIST_UPDATE: (payload: { players: PublicPlayer[] }) => void;
   ROOM_ERROR: (payload: { message: string }) => void;
   ROLE_SELECTION_UPDATE: (payload: { mode: GameMode; roles: RoleCounts; valid: boolean }) => void;
-  TICK_START: (payload: { tickIndex: number; tickId: NightTickId; durationMs: number }) => void;
+  /**
+   * Sent to one player only, on their own socket: the card they were dealt.
+   * `rolesInPlay` is the whole deck (players + centre) and is public
+   * knowledge in One Night — it's what the table agreed to play with.
+   */
+  YOUR_ROLE: (payload: { roleId: RoleId; rolesInPlay: RoleCounts; wakesAtNight: boolean }) => void;
+  ROLE_REVEAL_UPDATE: (payload: { readyPlayerIds: string[]; totalPlayers: number }) => void;
+  TICK_START: (payload: {
+    tickIndex: number;
+    tickId: NightTickId;
+    durationMs: number;
+    tickNumber: number;
+    tickCount: number;
+  }) => void;
   TICK_PAYLOAD: (payload: { tickId: NightTickId; active: boolean }) => void;
   TICK_PAUSED: (payload: Record<string, never>) => void;
   TICK_RESUMED: (payload: { remainingMs: number }) => void;
@@ -159,8 +186,13 @@ export interface ClientToServerEvents {
   SET_ROLE_MODE: (payload: { mode: GameMode }) => void;
   SET_CUSTOM_ROLES: (payload: { roles: RoleCounts }) => void;
   START_GAME: () => void;
+  READY_FOR_NIGHT: () => void;
+  /** Host escape hatch: start the night without waiting on every "prêt". */
+  START_NIGHT: () => void;
   SUBMIT_NIGHT_ACTION: (payload: { tickId: NightTickId; params: Record<string, unknown> }) => void;
   SET_DAY_DURATION: (payload: { durationMs: number }) => void;
+  /** Host cuts the discussion short and sends the table straight to the vote. */
+  SKIP_DAY: () => void;
   SUBMIT_VOTE: (payload: { targetPlayerId: string }) => void;
   REPLAY: () => void;
 }
