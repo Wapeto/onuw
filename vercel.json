@@ -2,7 +2,10 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "outputDirectory": "client/dist",
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/api/socket-io/:path*", "destination": "/api/socket-io" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
   "functions": {
     "api/socket-io.ts": { "maxDuration": 300 }
   }
