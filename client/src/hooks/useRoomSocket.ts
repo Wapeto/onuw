@@ -112,7 +112,12 @@ export function useRoomSocket(): RoomSession {
   useEffect(() => {
     const stored = readStoredSession();
     const socket: AppSocket = io(SOCKET_URL, {
-      transports: ["websocket"],
+      // WebSocket d'abord, long-polling en secours : le serveur ne tourne plus
+      // sur Vercel (qui ne routait que les upgrades) mais sur un vrai process
+      // Node, où les deux transports fonctionnent. Le secours sert aux réseaux
+      // qui bloquent les WebSockets. Valable tant que le serveur tourne en une
+      // seule instance — au-delà, le polling exigerait des sticky sessions.
+      transports: ["websocket", "polling"],
       path: SOCKET_PATH,
       auth: stored.roomCode && stored.playerId && stored.reconnectToken ? stored : {},
     });

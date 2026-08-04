@@ -5,6 +5,8 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
 } from "@onuw/shared";
+import { resolveCorsOrigin } from "./corsConfig.js";
+import { createHealthHandler } from "./http/healthHandler.js";
 import { attachRedisAdapter } from "./redis/socketAdapter.js";
 import { registerRoomEvents } from "./rooms/roomEvents.js";
 import { createDisconnectHandler } from "./rooms/disconnectHandler.js";
@@ -12,10 +14,10 @@ import { createTickRunner } from "./night/tickRunner.js";
 import { createDayTimer } from "./day/dayTimer.js";
 
 export function createApp() {
-  const httpServer = createServer();
+  const httpServer = createServer(createHealthHandler());
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(
     httpServer,
-    { cors: { origin: "*" } },
+    { cors: { origin: resolveCorsOrigin(process.env) } },
   );
   const subClient = attachRedisAdapter(io);
 

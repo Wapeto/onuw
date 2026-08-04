@@ -26,4 +26,14 @@ describe("server bootstrap", () => {
 
     expect(payload.socketId).toBe(client.id);
   });
+
+  it("answers the plain-HTTP health probe instead of leaving it hanging", async () => {
+    app = createApp();
+    const port = await listen(app, 0);
+
+    const response = await fetch(`http://localhost:${port}/healthz`);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("ok");
+  });
 });

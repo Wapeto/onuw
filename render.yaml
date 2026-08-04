@@ -1,0 +1,42 @@
+# Render Blueprint — serveur temps réel ONUW (Socket.io + Redis).
+#
+# Le client React reste hébergé sur Vercel (loup.wapeto.net) : seul le serveur
+# Socket.io déménage ici, Vercel ne sachant pas faire tourner de processus
+# long. Voir docs/deployment.md.
+services:
+  - type: web
+    name: onuw-server
+    runtime: node
+    plan: free
+    region: frankfurt
+    # Le client n'est volontairement pas construit ici — il est déployé par
+    # Vercel. On ne construit que shared (dépendance de server) puis server.
+    buildCommand: npm install && npm run build -w shared && npm run build -w server
+    startCommand: node server/dist/start.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: onuw-redis
+          property: connectionString
+      # Origines autorisées à ouvrir une connexion Socket.io, séparées par des
+      # virgules. Renseignée à la main dans le dashboard (sync: false) car elle
+      # dépend du domaine Vercel du client.
+      - key: CORS_ORIGIN
+        sync: false
+
+  - type: keyvalue
+    name: onuw-redis
+    plan: free
+    region: frankfurt
+    # L'état des parties est la source de vérité : mieux vaut refuser une
+    # écriture (erreur visible) que d'évincer silencieusement une partie en
+    # cours, ce que ferait la politique allkeys-lru par défaut.
+    maxmemoryPolicy: noeviction
+    # Liste vide = connexions internes uniquement (depuis onuw-server), aucune
+    # exposition publique. Le plan free ne persiste pas les données : l'état des
+    # parties est éphémère et déjà porté par des clés à TTL, c'est acceptable.
+    ipAllowList: []

@@ -5,8 +5,7 @@
   "workspaces": [
     "shared",
     "server",
-    "client",
-    "api"
+    "client"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
